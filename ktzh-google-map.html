@@ -1,0 +1,1148 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#061719">
+<title>КТЖ | SmartRailway AI — автодиспетчеризация и автоведение</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+if (window.tailwind) tailwind.config = { theme: { extend: {
+  colors: { shell:'#061719', paper:'#0c2629', paper2:'#10322f', line:'#2b4b4e', ink:'#e6f1ef', muted:'#9fb6b5',
+            teal:'#79c8c1', amber:'#ffb52d', danger:'#ff6b52', ok:'#4fd1a1', sky:'#89d0f6' },
+  fontFamily: { sans:['"Golos Text"','system-ui','sans-serif'], display:['Unbounded','"Golos Text"','system-ui','sans-serif'] }
+}}};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<style>
+:root{
+  --shell:#061719; --paper:#0c2629; --paper2:#10322f; --line:#2b4b4e; --line2:#1b3a3d;
+  --ink:#e6f1ef; --muted:#9fb6b5; --teal:#79c8c1; --amber:#ffb52d; --red:#ff6b52; --green:#4fd1a1; --sky:#89d0f6; --violet:#b9a4ff;
+  --display:Unbounded,"Golos Text",system-ui,sans-serif; --sans:"Golos Text",system-ui,sans-serif;
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%;margin:0}
+body{background:var(--shell);color:var(--ink);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- top bar ---------- */
+.topbar{background:linear-gradient(180deg,#0a2326 0%,#071c1f 100%);border-bottom:1px solid var(--line)}
+.topbar-row{display:flex;align-items:center;gap:28px;padding:12px 20px}
+.brand{display:flex;align-items:center;gap:12px;flex:none}
+.brand-mark{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.02em;color:#061719;background:var(--amber);padding:9px 10px 8px;border-radius:6px;line-height:1}
+.brand-name{font-family:var(--display);font-weight:600;font-size:16px;line-height:1.1}
+.brand-name b{color:var(--teal);font-weight:600}
+.live{display:inline-flex;align-items:center;gap:7px;margin-top:5px;font-size:12px;color:var(--green);background:rgba(79,209,161,.08);border:1px solid rgba(79,209,161,.28);padding:3px 8px;border-radius:99px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(79,209,161,.7);animation:beat 1s infinite}
+.live-pk{color:var(--muted)}
+@keyframes beat{0%{box-shadow:0 0 0 0 rgba(79,209,161,.65)}70%{box-shadow:0 0 0 7px rgba(79,209,161,0)}100%{box-shadow:0 0 0 0 rgba(79,209,161,0)}}
+
+.index-block{display:flex;align-items:center;gap:14px;padding:6px 22px;border-left:1px solid var(--line);border-right:1px solid var(--line);flex:none}
+.index-ring{width:64px;height:64px;transform:rotate(-90deg)}
+.index-ring circle{fill:none;stroke-width:6}
+.index-ring .bg{stroke:var(--line2)}
+.index-ring .fg{stroke-linecap:round;transition:stroke-dashoffset 1.2s cubic-bezier(.2,.8,.2,1),stroke .6s}
+.index-label{font-size:12px;color:var(--muted);line-height:1.2}
+.index-val{font-family:var(--display);font-weight:700;font-size:34px;line-height:1;letter-spacing:-.02em}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 9px;border-radius:99px;border:1px solid}
+.pill-green{color:var(--green);border-color:rgba(79,209,161,.4);background:rgba(79,209,161,.1)}
+.pill-yellow{color:var(--amber);border-color:rgba(255,181,45,.4);background:rgba(255,181,45,.1)}
+.pill-red{color:var(--red);border-color:rgba(255,107,82,.45);background:rgba(255,107,82,.12)}
+
+.kpis{display:flex;gap:26px;flex:1;min-width:0}
+.kpi{min-width:0}
+.kpi-l{font-size:12px;color:var(--muted);white-space:nowrap}
+.kpi-v{font-family:var(--display);font-weight:600;font-size:20px;line-height:1.25;margin-top:3px;white-space:nowrap}
+.kpi-s{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi-s b{color:var(--red);font-weight:600}
+.clock{text-align:right;flex:none}
+.clock-v{font-family:var(--display);font-weight:500;font-size:18px}
+.clock-s{font-size:11px;color:var(--muted)}
+
+.tabs{display:flex;gap:4px;padding:0 14px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{background:none;border:0;padding:11px 14px 12px;font-size:14px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab.active{color:var(--ink);border-bottom-color:var(--amber)}
+
+/* ---------- sidebar ---------- */
+.sidebar{width:300px;flex:none;background:var(--paper);border-right:1px solid var(--line);overflow-y:auto;display:flex;flex-direction:column}
+.sb-sec{padding:16px 18px;border-bottom:1px solid var(--line2)}
+.sb-h{font-size:12px;font-weight:600;color:var(--muted);margin:0 0 10px;letter-spacing:.02em}
+.layer{display:flex;align-items:center;gap:10px;width:100%;padding:7px 8px;margin:0 -8px;width:calc(100% + 16px);background:none;border:0;border-radius:7px;cursor:pointer;text-align:left}
+.layer:hover{background:rgba(121,200,193,.07)}
+.layer .sw{width:16px;height:4px;border-radius:2px;flex:none}
+.layer .nm{flex:1;font-size:14px}
+.toggle{width:30px;height:17px;border-radius:99px;background:var(--line);position:relative;flex:none;transition:background .2s}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#bcd0cf;transition:transform .2s}
+.layer[aria-pressed="true"] .toggle{background:var(--teal)}
+.layer[aria-pressed="true"] .toggle::after{transform:translateX(13px);background:#061719}
+.layer[aria-pressed="false"] .nm{color:var(--muted)}
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.chip{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 9px;border-radius:8px;border:1px solid var(--line);background:#0a2124;cursor:pointer;text-align:left}
+.chip .c-n{font-family:var(--display);font-size:17px;font-weight:600}
+.chip .c-l{font-size:11px;color:var(--muted)}
+.chip[aria-pressed="false"]{opacity:.42}
+.chip.g .c-n{color:var(--green)} .chip.y .c-n{color:var(--amber)} .chip.r .c-n{color:var(--red)}
+.scn{display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);background:#0a2124;cursor:pointer;text-align:left;font-size:13.5px;font-weight:500;transition:border-color .15s,background .15s}
+.scn+.scn{margin-top:8px}
+.scn:hover{border-color:var(--teal);background:#0e2b2e}
+.scn.warn{border-color:rgba(255,181,45,.45)}
+.scn.stop{border-color:rgba(255,107,82,.45)}
+.scn .ic{font-size:16px;flex:none}
+.scn small{display:block;color:var(--muted);font-size:11.5px;font-weight:400;margin-top:1px}
+.log{flex:1;min-height:180px;display:flex;flex-direction:column}
+.log-list{list-style:none;margin:0;padding:0;font-size:12.5px;overflow-y:auto;flex:1}
+.log-list li{display:grid;grid-template-columns:58px 1fr;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line2);line-height:1.35}
+.log-list li time{color:var(--muted);font-variant-numeric:tabular-nums}
+.log-list li.r span{color:#ffb3a5} .log-list li.y span{color:#ffd88f} .log-list li.g span{color:#a9ebd2}
+.log-list li.new{animation:flash 1.2s ease-out}
+@keyframes flash{from{background:rgba(255,181,45,.12)}to{background:transparent}}
+
+/* ---------- views ---------- */
+.view{position:absolute;inset:0;display:none}
+.view.active{display:flex;flex-direction:column}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:12px}
+.panel-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px 0}
+.panel-t{font-family:var(--display);font-weight:600;font-size:15px}
+.panel-s{font-size:12.5px;color:var(--muted)}
+.view-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:16px 20px 12px}
+.view-title{font-family:var(--display);font-weight:600;font-size:19px;margin:0}
+.view-sub{color:var(--muted);font-size:13px;margin-top:4px}
+.lg{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted)}
+.lg span{display:inline-flex;align-items:center;gap:7px}
+.lg i{display:inline-block;width:22px;height:0;border-top:2px solid var(--ink)}
+.lg i.dash{border-top-style:dashed;opacity:.7}
+.lg i.box{height:11px;width:16px;border:1px dashed;border-radius:2px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;padding:3px;background:#0a2124}
+.seg button{border:0;background:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--muted)}
+.seg button.on{background:var(--paper2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+
+/* ---------- map ---------- */
+#map{position:absolute;inset:0;background:#06181a}
+#map{background:#e8eaed}
+.leaflet-container{background:#e8eaed}
+.leaflet-control-zoom a{background:var(--paper)!important;color:var(--ink)!important;border-color:var(--line)!important}
+.leaflet-control-attribution{background:rgba(6,23,25,.75)!important;color:var(--muted)!important}
+.leaflet-control-attribution a{color:var(--teal)!important}
+.st-lbl{background:transparent;border:0;box-shadow:none;color:#0c2629;font-family:var(--sans);font-size:11.5px;font-weight:700;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 5px #fff;padding:0}
+.st-lbl::before{display:none}
+.zone-tip{background:var(--paper);color:var(--ink);border:1px solid var(--line);font-family:var(--sans);font-size:12px}
+.train-icon{transition:transform 1s linear}
+.no-anim .train-icon{transition:none!important}
+.tm{position:absolute;left:-7px;top:-7px;display:flex;align-items:center;gap:5px;white-space:nowrap;pointer-events:auto;cursor:pointer}
+.tm .dot{width:14px;height:14px;border-radius:50%;border:2px solid #061719;position:relative;flex:none}
+.tm.freight .dot{border-radius:3px}
+.tm .lbl{font-size:11px;font-weight:600;padding:1px 5px;border-radius:4px;background:rgba(6,23,25,.88);border:1px solid var(--line);color:var(--ink)}
+.tm.green .dot{background:var(--green)} .tm.yellow .dot{background:var(--amber)} .tm.red .dot{background:var(--red)}
+.tm.red .lbl{border-color:var(--red);color:#ffd0c7}
+.tm.red .dot::after,.tm.red .dot::before{content:"";position:absolute;inset:-2px;border-radius:50%;border:2px solid var(--red);animation:ring 1.6s ease-out infinite}
+.tm.red .dot::before{animation-delay:.8s}
+@keyframes ring{from{transform:scale(1);opacity:.9}to{transform:scale(3.4);opacity:0}}
+.tm.stopped .lbl::after{content:" ■";color:var(--red)}
+.leaflet-popup-content-wrapper{background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 40px rgba(0,0,0,.55)}
+.leaflet-popup-tip{background:var(--paper);border:1px solid var(--line)}
+.leaflet-popup-content{margin:0;width:300px!important;font-family:var(--sans)}
+.leaflet-container a.leaflet-popup-close-button{color:var(--muted);top:8px;right:8px}
+.pop{border-top:4px solid var(--acc,var(--green));border-radius:12px 12px 0 0;padding:14px 16px 16px}
+.pop-id{font-family:var(--display);font-weight:600;font-size:18px}
+.pop-type{font-size:12px;color:var(--muted);margin-top:2px}
+.pop dl{display:grid;grid-template-columns:86px 1fr;gap:6px 10px;margin:12px 0 0;font-size:13px;line-height:1.35}
+.pop dt{color:var(--muted)} .pop dd{margin:0}
+.pop .act{margin-top:14px;width:100%;padding:10px 12px;border-radius:9px;border:0;background:var(--amber);color:#061719;font-weight:700;cursor:pointer;font-size:13.5px}
+.pop .act:hover{filter:brightness(1.08)}
+.map-legend{position:absolute;left:16px;bottom:16px;z-index:500;background:rgba(12,38,41,.96);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--muted);display:grid;gap:7px;min-width:220px;box-shadow:0 12px 34px rgba(0,7,8,.5)}
+.map-legend b{color:var(--ink);font-weight:600;font-size:12.5px}
+.map-legend span{display:flex;align-items:center;gap:9px}
+.map-legend .d{width:11px;height:11px;border-radius:50%} .map-legend .q{width:11px;height:11px;border-radius:3px;background:var(--muted)}
+.map-legend .ln{width:20px;height:4px;border-radius:2px}
+.map-stat{position:absolute;top:14px;left:16px;z-index:500;display:flex;gap:8px;flex-wrap:wrap}
+.map-stat div{background:rgba(12,38,41,.94);border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:12px;color:var(--muted)}
+.map-stat b{display:block;font-family:var(--display);font-size:16px;color:var(--ink);font-weight:600}
+
+/* ---------- ATO ---------- */
+.ato-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;padding:0 20px 20px;flex:1;min-height:0}
+.ato-side{display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+.adv{padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:var(--paper)}
+.adv.primary{border-color:rgba(79,209,161,.5);background:linear-gradient(180deg,rgba(79,209,161,.10),rgba(79,209,161,.02))}
+.adv-l{font-size:12px;color:var(--muted)}
+.adv-v{font-family:var(--display);font-weight:600;font-size:17px;margin-top:4px;line-height:1.3}
+.adv-s{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.4}
+.speeds{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.speeds div{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px}
+.speeds b{display:block;font-family:var(--display);font-size:22px;font-weight:600;line-height:1.1}
+.speeds small{font-size:11px;color:var(--muted)}
+.dev{height:6px;border-radius:3px;background:var(--line2);position:relative;margin-top:10px}
+.dev i{position:absolute;top:-3px;width:3px;height:12px;border-radius:2px;background:var(--ink);left:50%;transition:left 1s linear}
+.dev::before{content:"";position:absolute;left:40%;right:40%;top:0;bottom:0;background:rgba(79,209,161,.45);border-radius:3px}
+
+/* ---------- index tab ---------- */
+.idx-grid{display:grid;grid-template-columns:340px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:14px;padding:0 20px 20px;flex:1;min-height:0;overflow:auto}
+.ftable{width:100%;border-collapse:collapse;font-size:13px}
+.ftable th{font-weight:500;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-size:12px}
+.ftable td{padding:9px 10px;border-bottom:1px solid var(--line2);vertical-align:top}
+.ftable td.v{font-family:var(--display);font-weight:600;text-align:right;white-space:nowrap}
+.ftable tr.top td:first-child{color:var(--ink)}
+.rank{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:5px;background:var(--line2);font-size:11px;margin-right:8px;color:var(--muted)}
+
+/* ---------- footer ---------- */
+.disclaimer{flex:none;display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 16px;background:#1d1a0c;border-top:1px solid rgba(255,181,45,.35);color:#ffd88f;font-size:12.5px;text-align:center}
+
+/* ---------- wizard ---------- */
+.modal{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(2,10,11,.72);backdrop-filter:blur(3px)}
+.modal.open{display:flex}
+.modal-box{width:min(820px,100%);max-height:calc(100% - 20px);overflow:auto;background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.6);animation:pop .25s cubic-bezier(.2,.8,.2,1)}
+@keyframes pop{from{transform:translateY(10px) scale(.985);opacity:0}to{transform:none;opacity:1}}
+.wz-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--line)}
+.wz-steps{display:flex;gap:6px;padding:14px 22px 0}
+.wz-step{flex:1;display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);padding-bottom:10px;border-bottom:2px solid var(--line2)}
+.wz-step b{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1px solid var(--line);font-size:11.5px}
+.wz-step.on{color:var(--ink);border-bottom-color:var(--amber)} .wz-step.on b{background:var(--amber);color:#061719;border-color:var(--amber)}
+.wz-step.done{color:var(--ink);border-bottom-color:var(--teal)} .wz-step.done b{background:var(--teal);color:#061719;border-color:var(--teal)}
+.wz-body{padding:20px 22px}
+.wz-foot{display:flex;justify-content:space-between;gap:10px;padding:16px 22px;border-top:1px solid var(--line)}
+.btn{padding:10px 16px;border-radius:9px;border:1px solid var(--line);background:#0a2124;cursor:pointer;font-weight:600;font-size:13.5px}
+.btn:hover{border-color:var(--teal)}
+.btn-pri{background:var(--amber);border-color:var(--amber);color:#061719}
+.btn-pri:hover{filter:brightness(1.07);border-color:var(--amber)}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.alert{display:flex;gap:14px;padding:14px 16px;border-radius:11px;border:1px solid rgba(255,107,82,.45);background:rgba(255,107,82,.08)}
+.alert.amber{border-color:rgba(255,181,45,.45);background:rgba(255,181,45,.07)}
+.aff{width:100%;border-collapse:collapse;margin-top:14px;font-size:13px}
+.aff td{padding:9px 8px;border-bottom:1px solid var(--line2)}
+.aff td:first-child{font-weight:600;white-space:nowrap}
+.aff td.d{color:var(--red);font-weight:700;text-align:right;white-space:nowrap}
+.var{display:block;width:100%;text-align:left;padding:16px 18px;border-radius:12px;border:1px solid var(--line);background:#0a2124;cursor:pointer;transition:border-color .15s,background .15s}
+.var+.var{margin-top:10px}
+.var[aria-checked="true"]{border-color:var(--amber);background:rgba(255,181,45,.06);box-shadow:inset 0 0 0 1px var(--amber)}
+.var-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.var-t{font-weight:700;font-size:15px}
+.rec{font-size:11.5px;font-weight:700;color:#061719;background:var(--green);padding:2px 8px;border-radius:99px}
+.var-m{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.var-m div{background:rgba(6,23,25,.6);border:1px solid var(--line2);border-radius:9px;padding:9px 11px}
+.var-m small{display:block;font-size:11.5px;color:var(--muted)}
+.var-m b{font-family:var(--display);font-weight:600;font-size:16px}
+.calc{padding:30px 10px;text-align:center}
+.bar{height:6px;background:var(--line2);border-radius:3px;overflow:hidden;margin:16px auto 0;max-width:420px}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--teal),var(--amber));transition:width 1.1s cubic-bezier(.3,.7,.3,1)}
+.acts{list-style:none;margin:14px 0 0;padding:0}
+.acts li{display:grid;grid-template-columns:62px 1fr;gap:10px;padding:9px 0;border-bottom:1px solid var(--line2);font-size:13px}
+.acts li b{font-weight:700;color:var(--teal)}
+
+.toast{position:fixed;right:20px;bottom:56px;z-index:2500;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast div{background:var(--paper2);border:1px solid var(--line);border-left:3px solid var(--green);padding:11px 14px;border-radius:9px;font-size:13px;box-shadow:0 14px 30px rgba(0,0,0,.45);max-width:360px;animation:pop .25s}
+.toast div.warn{border-left-color:var(--amber)} .toast div.err{border-left-color:var(--red)}
+
+.icon-btn{border:1px solid var(--line);background:#0a2124;border-radius:8px;width:36px;height:36px;cursor:pointer;flex:none}
+
+@media (max-width:1380px){ .kpi-s{display:none} .kpis{gap:18px} }
+@media (max-width:1180px){ .clock{display:none} .index-val{font-size:28px} }
+@media (max-width:1023px){
+  .sidebar{position:absolute;z-index:1500;top:0;bottom:0;left:0;transform:translateX(-100%);transition:transform .25s;box-shadow:20px 0 40px rgba(0,0,0,.5)}
+  .sidebar.open{transform:none}
+  .topbar-row{flex-wrap:wrap;gap:14px}
+  .index-block{border:0;padding:0}
+  .kpis{flex-basis:100%;overflow-x:auto}
+  .ato-grid,.idx-grid{grid-template-columns:1fr;overflow:auto}
+  .ato-grid > .panel{min-height:380px}
+}
+@media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+</style>
+</head>
+<body>
+<div class="flex flex-col h-full">
+
+  <!-- ================= TOP BAR ================= -->
+  <header class="topbar flex-none">
+    <div class="topbar-row">
+      <button id="btnSb" class="icon-btn lg:hidden" aria-label="Открыть панель управления">☰</button>
+      <div class="brand">
+        <div class="brand-mark">КТЖ</div>
+        <div>
+          <div class="brand-name">SmartRailway <b>AI</b></div>
+          <div class="live" title="Поток телеметрии, 1 пакет в секунду"><span class="live-dot"></span>🟢 WebSocket 1Hz Live <span id="pkt" class="live-pk num">#0</span></div>
+        </div>
+      </div>
+
+      <div class="index-block" title="Интегральный индекс качества движения">
+        <svg class="index-ring" viewBox="0 0 64 64" aria-hidden="true">
+          <circle class="bg" cx="32" cy="32" r="27"/>
+          <circle id="ringFg" class="fg" cx="32" cy="32" r="27" stroke-dasharray="169.6" stroke-dashoffset="169.6"/>
+        </svg>
+        <div>
+          <div class="index-label">Индекс качества движения</div>
+          <div class="flex items-center gap-3 mt-1">
+            <span id="idxVal" class="index-val num">0.0%</span>
+            <span id="idxPill" class="pill pill-yellow">🟡 Внимание</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi"><div class="kpi-l">⏱ Суммарная задержка</div><div class="kpi-v num"><span id="kDelay">45</span> мин</div><div class="kpi-s" id="kCulprit">Виновник: <b>Поезд №P001</b></div></div>
+        <div class="kpi"><div class="kpi-l">⚡ Экономия энергии</div><div class="kpi-v num" style="color:var(--green)">+<span id="kEnergy">4.2</span>%</div><div class="kpi-s">к режиму без рекомендаций ATO</div></div>
+        <div class="kpi"><div class="kpi-l">🚦 Конфликты на перегонах</div><div class="kpi-v num" id="kConf">1 активный</div><div class="kpi-s" id="kConfWhere">ст. Агадырь, скрещение</div></div>
+      </div>
+
+      <div class="clock"><div id="clock" class="clock-v num">09:40:00</div><div class="clock-s">Астана, UTC+5</div></div>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="map" role="tab">🗺 Карта и Мониторинг</button>
+      <button class="tab" data-view="graph" role="tab">📈 Поездограмма (График)</button>
+      <button class="tab" data-view="ato" role="tab">⚡ Автоведение (ATO)</button>
+      <button class="tab" data-view="index" role="tab">📊 Индекс и Факторы</button>
+    </nav>
+  </header>
+
+  <div class="flex flex-1 min-h-0 relative">
+    <!-- ================= SIDEBAR ================= -->
+    <aside id="sidebar" class="sidebar">
+      <section class="sb-sec">
+        <h2 class="sb-h">Слои карты</h2>
+        <button class="layer" data-layer="main" aria-pressed="true"><span class="sw" style="background:#0f7f78"></span><span class="nm">Магистраль КТЖ</span><span class="toggle"></span></button>
+        <button class="layer" data-layer="pass" aria-pressed="true"><span class="sw" style="background:var(--sky);height:10px;width:10px;border-radius:50%"></span><span class="nm">Пассажирские</span><span class="toggle"></span></button>
+        <button class="layer" data-layer="freight" aria-pressed="true"><span class="sw" style="background:var(--muted);height:10px;width:10px;border-radius:2px"></span><span class="nm">Грузовые</span><span class="toggle"></span></button>
+        <button class="layer" data-layer="zones" aria-pressed="true"><span class="sw" style="background:var(--red)"></span><span class="nm">Красные зоны (ремонт, занятость)</span><span class="toggle"></span></button>
+      </section>
+      <section class="sb-sec">
+        <h2 class="sb-h">Фильтр поездов</h2>
+        <div class="chips">
+          <button class="chip g" data-f="green" aria-pressed="true"><span class="c-n num" id="cG">0</span><span class="c-l">🟢 В графике</span></button>
+          <button class="chip y" data-f="yellow" aria-pressed="true"><span class="c-n num" id="cY">0</span><span class="c-l">🟡 Отклонение</span></button>
+          <button class="chip r" data-f="red" aria-pressed="true"><span class="c-n num" id="cR">0</span><span class="c-l">🔴 Критично</span></button>
+        </div>
+      </section>
+      <section class="sb-sec">
+        <h2 class="sb-h">Симулятор нештатных ситуаций</h2>
+        <button class="scn warn" id="sBreak"><span class="ic">⚠️</span><span>Сымитировать поломку №P001 (+45 мин)<small>Отказ тягового двигателя на перегоне</small></span></button>
+        <button class="scn stop" id="sClose"><span class="ic">⛔</span><span>Закрытие перегона Астана — Караганда<small>Внеплановое окно, 08:50–10:10</small></span></button>
+        <button class="scn" id="sReset"><span class="ic">🔄</span><span>Сброс к норме<small>Все поезда по графику</small></span></button>
+      </section>
+      <section class="sb-sec log">
+        <h2 class="sb-h">Журнал событий</h2>
+        <ul id="log" class="log-list" aria-live="polite"></ul>
+      </section>
+    </aside>
+
+    <!-- ================= MAIN ================= -->
+    <main class="flex-1 relative min-w-0">
+      <!-- MAP -->
+      <section id="view-map" class="view active">
+        <div id="map"></div>
+        <div class="map-stat">
+          <div><b class="num" id="msTrains">15</b>поездов на линии</div>
+          <div><b class="num" id="msSpeed">—</b>средняя скорость, км/ч</div>
+          <div><b class="num" id="msLat">42 мс</b>задержка канала</div>
+        </div>
+        <div class="map-legend">
+          <b>Условные обозначения</b>
+          <span><i class="d" style="background:var(--green)"></i>В графике (отклонение до 5 мин)</span>
+          <span><i class="d" style="background:var(--amber)"></i>Отклонение от графика</span>
+          <span><i class="d" style="background:var(--red)"></i>Критично, требуется решение</span>
+          <span><i class="q"></i>Грузовой поезд (квадрат)</span>
+          <span><i class="ln" style="background:#0f7f78"></i>Магистраль КТЖ</span>
+          <span><i class="ln" style="background:var(--red)"></i>Закрытие или занятость</span>
+        </div>
+      </section>
+
+      <!-- GRAPH -->
+      <section id="view-graph" class="view">
+        <div class="view-head">
+          <div>
+            <h1 class="view-title">Поездограмма: Астана — Алматы</h1>
+            <div class="view-sub" id="gSub">Сплошная линия: прогноз без вмешательства. Пунктир: нормативный график.</div>
+          </div>
+          <div class="lg">
+            <span><i class="dash"></i>План</span>
+            <span><i></i><em id="gSolid" style="font-style:normal">Прогноз</em></span>
+            <span><i class="box" style="border-color:var(--muted);background:rgba(159,182,181,.12)"></i>Технологическое окно</span>
+            <span><i class="box" style="border-color:var(--red);background:rgba(255,107,82,.2)"></i>Закрыто или занято</span>
+            <span><i style="border-color:var(--amber)"></i>Сейчас</span>
+          </div>
+        </div>
+        <div class="panel mx-5 mb-5 flex-1 min-h-0"><div id="gChart" class="w-full h-full"></div></div>
+      </section>
+
+      <!-- ATO -->
+      <section id="view-ato" class="view">
+        <div class="view-head">
+          <div>
+            <h1 class="view-title">Советующее автоведение (Advisory ATO)</h1>
+            <div class="view-sub" id="atoSub">Участок Караганда — Агадырь, 170 км</div>
+          </div>
+          <div class="seg" id="atoSel">
+            <button data-t="P001" class="on">№P001 Тальго</button>
+            <button data-t="P014">№P014 пасс.</button>
+            <button data-t="G203">№G203 груз.</button>
+          </div>
+        </div>
+        <div class="ato-grid">
+          <div class="panel flex flex-col min-h-0">
+            <div class="panel-h">
+              <div class="panel-t">Профиль скорости</div>
+              <div class="lg"><span><i style="border-color:var(--red)"></i>Ограничение скорости</span><span><i style="border-color:var(--green)"></i>Рекомендация ИИ</span><span><i style="border-color:var(--sky)"></i>Фактическая</span></div>
+            </div>
+            <div id="aChart" class="flex-1 min-h-0"></div>
+          </div>
+          <div class="ato-side">
+            <div class="speeds">
+              <div><b class="num" id="aAct" style="color:var(--sky)">0</b><small>факт, км/ч</small></div>
+              <div><b class="num" id="aRec" style="color:var(--green)">0</b><small>рекоменд.</small></div>
+              <div><b class="num" id="aLim" style="color:var(--red)">0</b><small>ограничение</small></div>
+            </div>
+            <div class="adv">
+              <div class="adv-l">Отклонение от рекомендации</div>
+              <div class="dev"><i id="aDev"></i></div>
+              <div class="adv-s" id="aDevT">В коридоре ±5 км/ч</div>
+            </div>
+            <div class="adv primary">
+              <div class="adv-l">Подсказка машинисту</div>
+              <div class="adv-v" id="aAdv">Рекомендуется выбег на 142 км</div>
+              <div class="adv-s" id="aAdvS">Отключить тягу, скорость снизится до 96 км/ч к входному сигналу</div>
+            </div>
+            <div class="adv">
+              <div class="adv-l">Точность прибытия</div>
+              <div class="adv-v num">±3 сек</div>
+              <div class="adv-s" id="aEta">Прогноз прибытия на ст. Агадырь: 11:18:40</div>
+            </div>
+            <div class="adv">
+              <div class="adv-l">Энергия на участке</div>
+              <div class="adv-v num" id="aEn">−412 кВт·ч (−7.4%)</div>
+              <div class="adv-s">Экономия за счёт выбега и рекуперации по сравнению с фактическим ведением</div>
+            </div>
+            <div class="adv">
+              <div class="adv-l">Ближайшее ограничение</div>
+              <div class="adv-v num" id="aNext">70 км/ч с 48 км</div>
+              <div class="adv-s" id="aNextS">Ремонт пути, предупреждение №17</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- INDEX -->
+      <section id="view-index" class="view">
+        <div class="view-head">
+          <div>
+            <h1 class="view-title">Индекс качества и факторы влияния</h1>
+            <div class="view-sub">ИКД = 70 баллов (базовый уровень) + сумма вкладов факторов. Каждый вклад можно проверить по исходным данным телеметрии.</div>
+          </div>
+        </div>
+        <div class="idx-grid">
+          <div class="panel" style="grid-row:span 2;display:flex;flex-direction:column">
+            <div class="panel-h"><div class="panel-t">Текущее значение</div></div>
+            <div id="iGauge" style="height:260px"></div>
+            <div class="px-4 pb-4" style="font-size:13px;color:var(--muted);line-height:1.5">
+              <div class="flex justify-between py-2" style="border-top:1px solid var(--line2)"><span>85–100</span><span style="color:var(--green)">🟢 Норма</span></div>
+              <div class="flex justify-between py-2" style="border-top:1px solid var(--line2)"><span>75–85</span><span style="color:var(--amber)">🟡 Внимание</span></div>
+              <div class="flex justify-between py-2" style="border-top:1px solid var(--line2);border-bottom:1px solid var(--line2)"><span>ниже 75</span><span style="color:var(--red)">🔴 Критично</span></div>
+              <p class="mt-3" id="iExplain"></p>
+            </div>
+            <div class="panel-h" style="padding-top:4px"><div class="panel-t" style="font-size:13px">Динамика за последний час</div></div>
+            <div id="iTrend" style="height:170px;flex:1;min-height:150px"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-h"><div class="panel-t">Вклад факторов, баллы</div><div class="panel-s" id="iSum"></div></div>
+            <div id="iBars" style="height:300px"></div>
+          </div>
+          <div class="panel" style="overflow:auto">
+            <div class="panel-h" style="padding-bottom:6px"><div class="panel-t">Top-5 факторов влияния</div></div>
+            <div class="px-2 pb-2">
+              <table class="ftable">
+                <thead><tr><th>Фактор</th><th>Чем подтверждается</th><th style="text-align:right">Вклад</th></tr></thead>
+                <tbody id="iTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="disclaimer">⚠️ Прототип носит консультативно-рекомендательный характер (Decision Support System) и не заменяет сертифицированные системы СЦБ и АЛСН</footer>
+</div>
+
+<!-- ================= WIZARD ================= -->
+<div id="wz" class="modal" role="dialog" aria-modal="true" aria-labelledby="wzTitle">
+  <div class="modal-box">
+    <div class="wz-head">
+      <div>
+        <div id="wzTitle" style="font-family:var(--display);font-weight:600;font-size:17px">Перепланирование графика</div>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:3px" id="wzSub">Мастер ИИ-диспетчера</div>
+      </div>
+      <button class="icon-btn" id="wzX" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="wz-steps">
+      <div class="wz-step" data-s="1"><b>1</b>Конфликт</div>
+      <div class="wz-step" data-s="2"><b>2</b>Варианты ИИ</div>
+      <div class="wz-step" data-s="3"><b>3</b>Применение</div>
+    </div>
+    <div class="wz-body" id="wzBody"></div>
+    <div class="wz-foot">
+      <button class="btn" id="wzBack">Назад</button>
+      <button class="btn btn-pri" id="wzNext">Далее</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   SmartRailway AI — демо-прототип. Все данные смоделированы.
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const C = { teal:'#79c8c1', amber:'#ffb52d', red:'#ff6b52', green:'#4fd1a1', sky:'#89d0f6', violet:'#b9a4ff', ink:'#e6f1ef', muted:'#9fb6b5', line:'#2b4b4e', line2:'#1b3a3d', paper:'#0c2629' };
+const FONT = '"Golos Text", system-ui, sans-serif';
+const DISP = 'Unbounded, "Golos Text", sans-serif';
+
+/* ---------------- Режимы (сценарии) ---------------- */
+const MODES = {
+  normal:      { index:97.4, delay:0,  culprit:'Нарушений нет',             energy:3.8, conf:0, where:'Все перегоны свободны',
+                 f:{F:0,     I:12.0, E:6.4, T:6.4, P:5.6, C:0,    W:-3.0} },
+  breakdown:   { index:79.5, delay:45, culprit:'Поезд №P001',               energy:4.2, conf:1, where:'ст. Агадырь, скрещение P001 / P014',
+                 f:{F:-18.0, I:12.0, E:8.5, T:6.4, P:5.6, C:-2.0, W:-3.0} },
+  breakdown_A: { index:88.5, delay:15, culprit:'Поезд №P001',               energy:5.1, conf:0, where:'Конфликт устранён ИИ',
+                 f:{F:-11.5, I:12.0, E:9.6, T:6.4, P:5.6, C:-0.6, W:-3.0} },
+  breakdown_B: { index:84.1, delay:27, culprit:'Поезд №P001',               energy:4.6, conf:0, where:'Обгон на ст. Агадырь',
+                 f:{F:-13.6, I:12.0, E:8.9, T:5.2, P:5.6, C:-1.0, W:-3.0} },
+  closure:     { index:74.2, delay:110, culprit:'Перегон Астана — Караганда', energy:3.1, conf:2, where:'Астана — Караганда, закрыт',
+                 f:{F:-14.2, I:10.5, E:6.9, T:3.1, P:4.4, C:-3.5, W:-3.0} },
+  closure_A:   { index:86.5, delay:30, culprit:'Перегон Астана — Караганда', energy:4.9, conf:0, where:'Однопутное движение организовано',
+                 f:{F:-8.0,  I:11.5, E:8.2, T:4.0, P:5.0, C:-1.2, W:-3.0} },
+  closure_B:   { index:78.9, delay:48, culprit:'Перегон Астана — Караганда', energy:3.6, conf:1, where:'Отстой поездов до открытия',
+                 f:{F:-11.5, I:10.5, E:7.2, T:3.1, P:4.6, C:-2.0, W:-3.0} },
+};
+const FACTOR_META = {
+  F:{ n:m=>m.startsWith('closure')?'Закрытие перегона':'Неисправность состава',
+      d:m=>m.startsWith('closure')?'Внеплановое окно на перегоне Астана — Караганда, 08:50–10:10':(m==='normal'?'Отказов подвижного состава нет':'Отказ тягового двигателя №P001, простой 45 мин на перегоне Караганда — Агадырь') },
+  I:{ n:()=>'Соблюдение интервалов', d:()=>'Межпоездные интервалы выдержаны на 96% блок-участков' },
+  E:{ n:()=>'Энергоэффективность', d:()=>'Рекомендации ATO: выбег и рекуперация на 11 поездах' },
+  T:{ n:()=>'Пропускная способность', d:()=>'Загрузка перегонов 72% от наличной' },
+  P:{ n:()=>'Пунктуальность отправления', d:()=>'92% поездов отправлены по графику' },
+  C:{ n:()=>'Каскадные задержки', d:m=>m.startsWith('closure')?'Вторичные задержки G219, P031, P045':'Вторичные задержки P014, G203, G117' },
+  W:{ n:()=>'Технологические окна', d:()=>'Окно ПЧ-14 Мойынты — Шыганак, 16:00–17:40' },
+};
+let MODE = 'breakdown';
+const M = () => MODES[MODE];
+
+/* ---------------- География ---------------- */
+const ST = {
+ 'Петропавловск':[54.876,69.171],'Кокшетау':[53.292,69.430],'Астана':[51.178,71.453],'Осакаровка':[50.559,72.564],
+ 'Караганда':[49.805,73.108],'Агадырь':[48.256,72.868],'Мойынты':[47.205,73.366],'Балхаш':[46.848,74.995],
+ 'Шыганак':[45.099,73.958],'Шу':[43.599,73.754],'Отар':[43.536,75.210],'Алматы':[43.345,76.948],
+ 'Тараз':[42.896,71.390],'Шымкент':[42.304,69.581],'Арысь':[42.431,68.796],'Туркестан':[43.309,68.241],
+ 'Кызылорда':[44.862,65.480],'Аральск':[46.806,61.679],'Кандыагаш':[49.471,57.427],'Актобе':[50.283,57.179],
+ 'Макат':[47.634,53.339],'Атырау':[47.093,51.921],'Бейнеу':[45.328,55.231],'Экибастуз':[51.743,75.321],
+ 'Павлодар':[52.289,76.973],'Есиль':[51.957,66.403],'Костанай':[53.231,63.602],'Жарык':[48.857,72.823],
+ 'Жезказган':[47.774,67.698],'Сарыозек':[44.361,77.968],'Актогай':[46.928,79.680],'Аягоз':[47.965,80.446],
+ 'Семей':[50.423,80.234],'Достык':[45.251,82.478]
+};
+const MAJOR = new Set(['Астана','Алматы','Караганда','Актобе','Шымкент','Павлодар','Семей','Атырау','Кызылорда','Костанай','Петропавловск','Мойынты','Достык','Жезказган','Агадырь','Шу','Тараз','Актогай','Экибастуз','Кокшетау','Бейнеу','Аральск']);
+const CORR = ['Астана','Осакаровка','Караганда','Агадырь','Мойынты','Шыганак','Шу','Отар','Алматы'];
+const LINES = [
+  ['Петропавловск','Кокшетау','Астана'], CORR, ['Мойынты','Балхаш'],
+  ['Шу','Тараз','Шымкент','Арысь'], ['Арысь','Туркестан','Кызылорда','Аральск','Кандыагаш','Актобе'],
+  ['Кандыагаш','Макат','Атырау'], ['Макат','Бейнеу'], ['Алматы','Сарыозек','Актогай','Аягоз','Семей'],
+  ['Актогай','Достык'], ['Астана','Экибастуз','Павлодар'], ['Астана','Есиль','Костанай'], ['Караганда','Жарык','Жезказган'],
+];
+
+/* Геометрия путей по реальной трассе (Natural Earth railroads), между каждой парой станций */
+const RAIL={"Петропавловск|Кокшетау":[[54.876,69.171],[54.797,69.257],[54.495,69.441],[54.417,69.525],[54.273,69.568],[54.127,69.677],[54.06,69.704],[53.943,69.788],[53.892,69.803],[53.857,69.781],[53.736,69.628],[53.653,69.594],[53.527,69.514],[53.485,69.529],[53.451,69.486],[53.335,69.423],[53.292,69.43]],"Кокшетау|Астана":[[53.292,69.43],[53.273,69.466],[53.217,69.654],[53.19,69.701],[53.129,69.76],[53.068,69.96],[53.039,69.973],[53.024,70.039],[52.994,70.091],[52.956,70.103],[52.931,70.221],[52.917,70.244],[52.883,70.239],[52.656,70.417],[52.599,70.421],[52.489,70.485],[52.403,70.513],[52.306,70.578],[52.103,70.748],[52.069,70.76],[52.055,70.859],[52.035,70.887],[52.023,70.934],[51.987,70.966],[51.895,70.997],[51.867,70.985],[51.809,70.992],[51.789,71.024],[51.766,71.034],[51.707,71.005],[51.583,71.107],[51.532,71.104],[51.488,71.187],[51.448,71.202],[51.369,71.282],[51.202,71.388],[51.178,71.453]],"Астана|Осакаровка":[[51.178,71.453],[51.096,71.765],[50.88,72.089],[50.715,72.3],[50.559,72.564]],"Осакаровка|Караганда":[[50.559,72.564],[50.528,72.618],[50.523,72.651],[50.476,72.651],[50.454,72.691],[50.435,72.794],[50.435,72.87],[50.399,72.886],[50.384,72.915],[50.397,73.039],[50.391,73.05],[50.359,73.033],[50.326,73.058],[50.249,73.049],[50.097,73.234],[49.95,73.219],[49.86,73.185],[49.834,73.167],[49.805,73.108]],"Караганда|Агадырь":[[49.805,73.108],[49.669,72.996],[49.551,72.855],[49.527,72.844],[49.477,72.85],[49.343,72.904],[49.23,72.979],[49.187,73.033],[49.164,73.028],[49.089,72.963],[49.046,72.883],[49.019,72.855],[48.969,72.83],[48.894,72.842],[48.699,72.752],[48.663,72.7],[48.634,72.69],[48.604,72.637],[48.579,72.627],[48.504,72.631],[48.412,72.745],[48.256,72.868]],"Агадырь|Мойынты":[[48.256,72.868],[48.209,72.895],[48.102,72.892],[48.021,72.932],[47.955,72.935],[47.893,72.96],[47.826,72.927],[47.737,72.971],[47.619,72.906],[47.568,72.897],[47.52,72.911],[47.493,72.93],[47.385,73.092],[47.292,73.293],[47.205,73.366]],"Мойынты|Шыганак":[[47.205,73.366],[47.217,73.352],[47.146,73.401],[47.092,73.414],[46.996,73.466],[46.949,73.469],[46.434,73.619],[46.379,73.583],[46.302,73.599],[46.182,73.582],[46.096,73.594],[45.972,73.515],[45.917,73.502],[45.826,73.424],[45.796,73.385],[45.74,73.41],[45.593,73.395],[45.556,73.429],[45.533,73.529],[45.494,73.601],[45.351,73.693],[45.317,73.753],[45.259,73.789],[45.176,73.921],[45.154,73.943],[45.099,73.958]],"Шыганак|Шу":[[45.099,73.958],[45.037,73.948],[44.958,74.011],[44.906,74.003],[44.79,73.856],[44.679,73.873],[44.512,73.837],[44.45,73.841],[44.426,73.834],[44.383,73.774],[44.368,73.771],[44.293,73.765],[44.239,73.779],[44.206,73.801],[44.17,73.796],[44.117,73.824],[44.05,73.835],[43.724,73.829],[43.673,73.827],[43.599,73.754]],"Шу|Отар":[[43.599,73.754],[43.806,73.962],[43.87,74.067],[43.875,74.091],[43.861,74.164],[43.861,74.218],[43.838,74.239],[43.837,74.3],[43.822,74.326],[43.815,74.388],[43.836,74.419],[43.812,74.471],[43.804,74.534],[43.708,74.789],[43.666,74.865],[43.603,75.023],[43.567,75.072],[43.536,75.21]],"Отар|Алматы":[[43.536,75.21],[43.524,75.294],[43.533,75.676],[43.523,75.791],[43.593,76.044],[43.601,76.166],[43.595,76.308],[43.508,76.479],[43.466,76.524],[43.428,76.541],[43.376,76.608],[43.345,76.948]],"Мойынты|Балхаш":[[47.205,73.366],[47.167,73.425],[47.155,73.599],[47.06,73.924],[46.909,74.288],[46.923,74.418],[46.896,74.469],[46.892,74.526],[46.902,74.615],[46.872,74.775],[46.866,74.935],[46.848,74.995]],"Шу|Тараз":[[43.599,73.754],[43.482,73.642],[43.394,73.621],[43.301,73.532],[43.124,73.039],[43.065,72.933],[42.94,72.765],[42.99,72.446],[42.995,72.286],[42.981,72.211],[43.002,71.662],[42.991,71.62],[42.88,71.397],[42.896,71.39]],"Тараз|Шымкент":[[42.896,71.39],[42.88,71.397],[42.827,71.292],[42.783,71.291],[42.77,71.258],[42.738,71.27],[42.694,71.244],[42.675,71.221],[42.653,71.162],[42.662,70.961],[42.653,70.889],[42.611,70.748],[42.544,70.648],[42.532,70.599],[42.509,70.6],[42.489,70.566],[42.487,70.552],[42.502,70.524],[42.48,70.46],[42.494,70.457],[42.469,70.412],[42.484,70.401],[42.482,70.323],[42.505,70.198],[42.534,70.129],[42.53,70.068],[42.541,70.023],[42.523,69.998],[42.544,69.983],[42.549,69.964],[42.514,69.852],[42.427,69.822],[42.372,69.763],[42.3,69.618],[42.304,69.581]],"Шымкент|Арысь":[[42.304,69.581],[42.31,69.549],[42.346,69.49],[42.372,69.397],[42.39,69.168],[42.377,69.059],[42.389,69.023],[42.426,68.98],[42.406,68.925],[42.402,68.879],[42.409,68.839],[42.433,68.811],[42.431,68.796]],"Арысь|Туркестан":[[42.431,68.796],[42.424,68.782],[42.476,68.749],[42.772,68.474],[42.908,68.375],[43.272,68.218],[43.296,68.183],[43.309,68.241]],"Туркестан|Кызылорда":[[43.309,68.241],[43.296,68.183],[43.317,68.136],[43.566,67.685],[43.667,67.466],[43.785,67.31],[43.899,67.249],[43.921,67.225],[44.028,67.031],[44.212,66.638],[44.288,66.547],[44.328,66.438],[44.494,66.205],[44.641,66.043],[44.674,65.927],[44.756,65.812],[44.792,65.713],[44.798,65.606],[44.822,65.544],[44.86,65.508],[44.862,65.48]],"Кызылорда|Аральск":[[44.862,65.48],[44.926,65.384],[44.981,65.336],[44.999,65.294],[44.999,65.234],[45.039,65.151],[45.034,65.067],[45.046,64.982],[45.069,64.912],[45.077,64.826],[45.072,64.638],[45.101,64.566],[45.126,64.542],[45.202,64.511],[45.246,64.418],[45.425,64.217],[45.458,64.132],[45.549,64.018],[45.596,63.94],[45.748,63.789],[45.759,63.669],[45.727,63.596],[45.691,63.456],[45.658,63.31],[45.659,63.253],[45.724,63.014],[45.769,62.758],[45.834,62.629],[45.852,62.482],[45.857,62.173],[45.871,62.108],[45.908,62.047],[45.963,61.995],[46.03,61.876],[46.066,61.881],[46.185,61.96],[46.246,61.963],[46.423,61.878],[46.526,61.881],[46.579,61.814],[46.763,61.745],[46.806,61.679]],"Аральск|Кандыагаш":[[46.806,61.679],[46.894,61.562],[47.073,61.167],[47.119,61.134],[47.116,61.094],[47.126,61.07],[47.212,61.044],[47.245,61.001],[47.303,60.974],[47.342,60.912],[47.392,60.898],[47.411,60.855],[47.439,60.827],[47.461,60.764],[47.523,60.676],[47.55,60.578],[47.598,60.512],[47.609,60.45],[47.642,60.41],[47.672,60.32],[47.686,60.236],[47.685,60.167],[47.674,60.125],[47.679,60.083],[47.754,59.786],[47.861,59.577],[47.911,59.505],[47.939,59.398],[47.938,59.322],[47.983,59.213],[48.074,59.123],[48.153,59.068],[48.214,59.047],[48.263,59.007],[48.335,58.879],[48.419,58.599],[48.549,58.528],[48.62,58.514],[48.62,58.493],[48.586,58.472],[48.627,58.44],[48.672,58.311],[48.805,58.209],[48.837,58.164],[48.856,58.076],[48.909,58.065],[48.974,58.001],[49.008,57.947],[49.062,57.911],[49.111,57.801],[49.138,57.784],[49.168,57.714],[49.227,57.662],[49.257,57.593],[49.372,57.509],[49.41,57.432],[49.448,57.413],[49.471,57.427]],"Кандыагаш|Актобе":[[49.471,57.427],[49.448,57.413],[49.529,57.389],[49.68,57.281],[49.956,57.325],[50.09,57.322],[50.23,57.245],[50.283,57.179]],"Кандыагаш|Макат":[[49.471,57.427],[49.4,57.369],[49.33,57.103],[49.268,57.038],[49.245,56.919],[49.183,56.75],[49.186,56.593],[49.146,56.492],[49.089,56.422],[49.013,56.372],[48.979,56.282],[48.934,56.219],[48.875,56.17],[48.828,56.153],[48.796,56.113],[48.779,56.042],[48.691,55.848],[48.601,55.724],[48.568,55.634],[48.501,55.559],[48.495,55.461],[48.419,55.206],[48.388,55.062],[48.3,54.994],[48.267,54.921],[48.214,54.867],[48.175,54.756],[48.093,54.661],[48.069,54.596],[48.059,54.503],[48.004,54.416],[47.811,53.913],[47.801,53.819],[47.753,53.728],[47.721,53.621],[47.717,53.556],[47.688,53.429],[47.634,53.339]],"Макат|Атырау":[[47.634,53.339],[47.612,53.191],[47.486,52.884],[47.406,52.739],[47.376,52.648],[47.362,52.472],[47.339,52.391],[47.141,51.973],[47.093,51.921]],"Макат|Бейнеу":[[47.634,53.339],[47.645,53.366],[47.441,53.671],[47.36,53.726],[47.204,53.792],[47.077,53.888],[46.961,53.913],[46.881,53.967],[46.786,54.064],[46.715,54.113],[46.601,54.245],[46.423,54.363],[46.29,54.478],[46.19,54.513],[46.102,54.6],[45.637,54.947],[45.481,55.113],[45.328,55.231]],"Алматы|Сарыозек":[[43.345,76.948],[43.343,76.971],[43.457,77.036],[43.704,77.134],[43.743,77.066],[43.765,77.051],[43.85,77.059],[43.89,77.082],[43.923,77.149],[43.924,77.246],[43.989,77.308],[44.027,77.367],[44.092,77.427],[44.199,77.484],[44.226,77.54],[44.258,77.514],[44.277,77.515],[44.281,77.689],[44.269,77.694],[44.267,77.716],[44.284,77.799],[44.338,77.873],[44.335,77.909],[44.361,77.968]],"Сарыозек|Актогай":[[44.361,77.968],[44.386,77.989],[44.425,77.989],[44.447,78.016],[44.499,77.997],[44.592,77.998],[44.621,77.984],[44.658,77.927],[44.792,77.843],[44.939,77.896],[45.071,77.903],[45.183,77.945],[45.241,77.985],[45.37,78.012],[45.405,78.064],[45.417,78.176],[45.454,78.26],[45.431,78.361],[45.436,78.395],[45.456,78.427],[45.689,78.61],[45.999,78.773],[46.2,78.927],[46.242,78.934],[46.27,78.902],[46.29,78.903],[46.326,78.965],[46.554,79.201],[46.631,79.301],[46.806,79.582],[46.928,79.68]],"Актогай|Аягоз":[[46.928,79.68],[47.146,79.764],[47.256,79.783],[47.361,79.925],[47.439,80.064],[47.569,80.142],[47.6,80.241],[47.749,80.329],[47.852,80.414],[47.965,80.446]],"Аягоз|Семей":[[47.965,80.446],[48.016,80.445],[48.081,80.478],[48.148,80.493],[48.223,80.49],[48.312,80.453],[48.348,80.461],[48.494,80.616],[48.553,80.649],[48.618,80.751],[48.636,80.841],[48.673,80.89],[48.708,80.917],[48.742,80.907],[48.835,80.833],[48.889,80.84],[48.978,80.966],[49.064,81.043],[49.082,81.082],[49.188,81.216],[49.317,81.279],[49.368,81.243],[49.415,81.237],[49.448,81.21],[49.748,80.859],[49.882,80.735],[49.926,80.712],[49.996,80.719],[50.032,80.694],[50.113,80.609],[50.205,80.472],[50.261,80.413],[50.334,80.284],[50.373,80.246],[50.423,80.234]],"Актогай|Достык":[[46.928,79.68],[46.907,79.666],[46.717,80.152],[46.595,80.389],[46.191,81.045],[46.181,81.106],[46.031,81.344],[45.935,81.574],[45.894,81.607],[45.851,81.617],[45.799,81.758],[45.79,81.832],[45.798,81.945],[45.764,82.037],[45.643,82.157],[45.555,82.217],[45.514,82.294],[45.471,82.32],[45.443,82.377],[45.392,82.394],[45.343,82.439],[45.28,82.456],[45.251,82.478]],"Астана|Экибастуз":[[51.178,71.453],[51.141,71.574],[51.154,71.743],[51.174,71.853],[51.222,71.942],[51.262,72.049],[51.31,72.277],[51.356,72.416],[51.372,72.53],[51.462,72.79],[51.484,72.889],[51.536,72.966],[51.62,73.056],[51.622,73.121],[51.608,73.228],[51.57,73.274],[51.587,73.412],[51.571,73.468],[51.569,73.544],[51.58,73.6],[51.619,73.675],[51.619,73.854],[51.644,74.024],[51.638,74.077],[51.662,74.151],[51.667,74.224],[51.683,74.274],[51.684,74.577],[51.716,74.766],[51.703,74.971],[51.747,75.22],[51.743,75.321]],"Экибастуз|Павлодар":[[51.743,75.321],[51.761,75.507],[51.807,75.677],[51.812,75.731],[52.069,76.331],[52.114,76.502],[52.283,76.912],[52.289,76.973]],"Астана|Есиль":[[51.178,71.453],[51.412,70.791],[51.418,70.644],[51.46,70.517],[51.556,70.064],[51.619,69.891],[51.74,69.39],[51.757,69.351],[51.791,69.143],[51.809,68.648],[51.796,68.502],[51.807,68.374],[51.774,68.209],[51.775,68.16],[51.789,68.012],[51.825,67.946],[51.808,67.882],[51.804,67.754],[51.856,67.634],[51.877,67.55],[51.881,67.479],[51.911,67.442],[51.922,67.409],[51.902,67.236],[51.895,66.916],[51.871,66.873],[51.866,66.837],[51.925,66.606],[51.957,66.403]],"Есиль|Костанай":[[51.957,66.403],[51.973,66.298],[52.013,66.227],[52.041,66.079],[52.098,66.177],[52.337,66.296],[52.444,66.374],[52.567,66.421],[52.846,66.429],[53.125,65.879],[53.143,65.819],[53.197,65.762],[53.254,65.645],[53.291,65.599],[53.296,65.348],[53.328,65.293],[53.325,65.237],[53.354,65.224],[53.361,65.197],[53.336,65.052],[53.345,64.872],[53.306,64.772],[53.303,64.681],[53.275,64.56],[53.292,64.38],[53.298,63.819],[53.278,63.755],[53.279,63.657],[53.231,63.602]],"Караганда|Жарык":[[49.805,73.108],[49.669,72.996],[49.532,72.845],[49.495,72.845],[49.343,72.904],[49.23,72.979],[49.184,73.033],[49.151,73.02],[49.097,72.972],[49.035,72.866],[48.993,72.838],[48.969,72.83],[48.915,72.844],[48.857,72.823]],"Жарык|Жезказган":[[48.857,72.823],[48.786,72.678],[48.749,72.513],[48.718,71.892],[48.685,71.657],[48.653,71.59],[48.516,71.129],[48.493,71.018],[48.487,70.933],[48.494,70.889],[48.537,70.785],[48.552,70.722],[48.531,70.419],[48.406,70.06],[48.338,69.921],[48.291,69.636],[48.305,69.614],[48.306,69.582],[48.204,69.3],[48.196,69.174],[48.173,69.104],[48.174,68.943],[48.026,68.398],[48.004,68.319],[47.979,68.278],[47.958,68.157],[47.881,68.043],[47.769,67.748],[47.774,67.698]],"Шымкент|Тараз":[[42.304,69.581],[42.3,69.618],[42.372,69.763],[42.427,69.822],[42.514,69.852],[42.549,69.964],[42.544,69.983],[42.523,69.998],[42.541,70.023],[42.53,70.068],[42.534,70.129],[42.505,70.198],[42.482,70.323],[42.484,70.401],[42.469,70.412],[42.494,70.457],[42.48,70.46],[42.502,70.524],[42.487,70.552],[42.489,70.566],[42.509,70.6],[42.532,70.599],[42.544,70.648],[42.611,70.748],[42.653,70.889],[42.662,70.961],[42.653,71.162],[42.675,71.221],[42.694,71.244],[42.738,71.27],[42.77,71.258],[42.783,71.291],[42.827,71.292],[42.88,71.397],[42.896,71.39]],"Отар|Шу":[[43.536,75.21],[43.567,75.072],[43.603,75.023],[43.666,74.865],[43.708,74.789],[43.804,74.534],[43.812,74.471],[43.836,74.419],[43.815,74.388],[43.822,74.326],[43.837,74.3],[43.838,74.239],[43.861,74.218],[43.861,74.164],[43.875,74.091],[43.87,74.067],[43.806,73.962],[43.599,73.754]]};
+function segPts(a,b){
+  if(RAIL[a+'|'+b]) return RAIL[a+'|'+b];
+  if(RAIL[b+'|'+a]) return [...RAIL[b+'|'+a]].reverse();
+  return [ST[a],ST[b]];
+}
+function trackOf(names){ const out=[ST[names[0]]]; const idx=[0];
+  for(let i=1;i<names.length;i++){ const s=segPts(names[i-1],names[i]); for(let j=1;j<s.length;j++) out.push(s[j]); idx.push(out.length-1); }
+  return {pts:out, idx};
+}
+function mkPath(names){
+  const {pts,idx}=trackOf(names); const cum=[0];
+  for(let i=1;i<pts.length;i++){ const a=pts[i-1], b=pts[i]; const k=Math.cos((a[0]+b[0])/2*Math.PI/180);
+    cum.push(cum[i-1]+Math.hypot(b[0]-a[0],(b[1]-a[1])*k)); }
+  const total=cum[cum.length-1]; const stT={}; names.forEach((n,i)=>stT[n]=cum[idx[i]]/total);
+  return {names,pts,cum,total,stT,idx};
+}
+function locate(p,d){ let lo=0, hi=p.cum.length-2;
+  while(lo<hi){ const m=(lo+hi+1)>>1; if(p.cum[m]<=d) lo=m; else hi=m-1; } return lo; }
+function pointAt(p,t){
+  t=Math.max(0,Math.min(1,t)); const d=t*p.total; const i=locate(p,d);
+  const f=(d-p.cum[i])/((p.cum[i+1]-p.cum[i])||1); const a=p.pts[i], b=p.pts[i+1];
+  let s=0; while(s<p.idx.length-2 && p.idx[s+1]<=i) s++;
+  return { ll:[a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f], seg:s };
+}
+function slicePath(p,t0,t1){
+  const a=pointAt(p,t0).ll, b=pointAt(p,t1).ll, i0=locate(p,t0*p.total), i1=locate(p,t1*p.total);
+  const out=[a]; for(let i=i0+1;i<=i1;i++) out.push(p.pts[i]); out.push(b); return out;
+}
+function between(p,a,b,f){ return p.stT[a]+(p.stT[b]-p.stT[a])*f; }
+
+/* ---------------- Поезда ---------------- */
+const R = names => mkPath(names);
+const P_CORR = R(CORR), P_CORR_R = R([...CORR].reverse());
+const TRAINS = [
+ {id:'P001',kind:'pass',name:'Тальго Астана — Алматы',prio:'Высший',p:P_CORR,at:['Караганда','Агадырь',.45],v:.00050,
+   st:{breakdown:'red'},dl:{breakdown:45,breakdown_A:15,breakdown_B:27},stop:{breakdown:1},boost:{breakdown_A:1.2}},
+ {id:'P014',kind:'pass',name:'Алматы — Астана',prio:'Высокий',p:P_CORR_R,at:['Мойынты','Агадырь',.35],v:.00046,
+   dl:{breakdown:38,breakdown_A:4,breakdown_B:12},hold:{breakdown:'Агадырь'}},
+ {id:'G203',kind:'freight',name:'Зерновой маршрут Астана — Шу',prio:'Нормальный',p:P_CORR,at:['Осакаровка','Караганда',.7],v:.00028,
+   dl:{breakdown:25,breakdown_B:9},follow:'P001'},
+ {id:'G117',kind:'freight',name:'Порожний маршрут Шу — Караганда',prio:'Нормальный',p:P_CORR_R,at:['Шыганак','Мойынты',.55],v:.00028,
+   dl:{breakdown:38,breakdown_A:5,breakdown_B:15},hold:{breakdown:'Мойынты'}},
+ {id:'G219',kind:'freight',name:'Контейнерный Астана — Алматы',prio:'Нормальный',p:P_CORR,at:['Астана','Осакаровка',.08],v:.00030,
+   st:{closure:'red'},dl:{closure:75,closure_A:25,closure_B:48},stop:{closure:1,closure_B:1}},
+ {id:'P031',kind:'pass',name:'Петропавловск — Астана',prio:'Высокий',p:R(['Петропавловск','Кокшетау','Астана']),at:['Кокшетау','Астана',.35],v:.0008,
+   dl:{closure:20,closure_A:6,closure_B:14},hold:{closure:'Астана',closure_B:'Астана'}},
+ {id:'P045',kind:'pass',name:'Костанай — Астана',prio:'Высокий',p:R(['Костанай','Есиль','Астана']),at:['Есиль','Астана',.5],v:.0007,
+   dl:{closure:15,closure_B:10},hold:{closure:'Астана',closure_B:'Астана'}},
+ {id:'P022',kind:'pass',name:'Шымкент — Алматы',prio:'Высокий',p:R(['Шымкент','Тараз','Шу','Отар','Алматы']),at:['Тараз','Шу',.4],v:.0007},
+ {id:'P060',kind:'pass',name:'Алматы — Шымкент',prio:'Высокий',p:R(['Алматы','Отар','Шу','Тараз','Шымкент']),at:['Отар','Шу',.6],v:.0007},
+ {id:'G451',kind:'freight',name:'Контейнерный Достык — Алматы',prio:'Нормальный',p:R(['Достык','Актогай','Сарыозек','Алматы']),at:['Актогай','Сарыозек',.3],v:.00045},
+ {id:'G612',kind:'freight',name:'Семей — Актогай',prio:'Нормальный',p:R(['Семей','Аягоз','Актогай']),at:['Семей','Аягоз',.5],v:.0005},
+ {id:'P008',kind:'pass',name:'Актобе — Кызылорда',prio:'Высокий',p:R(['Актобе','Кандыагаш','Аральск','Кызылорда']),at:['Кандыагаш','Аральск',.4],v:.0005},
+ {id:'G509',kind:'freight',name:'Нефтеналивной Атырау — Кандыагаш',prio:'Нормальный',p:R(['Атырау','Макат','Кандыагаш']),at:['Макат','Кандыагаш',.3],v:.0006},
+ {id:'G330',kind:'freight',name:'Угольный Экибастуз — Павлодар',prio:'Нормальный',p:R(['Экибастуз','Павлодар']),at:['Экибастуз','Павлодар',.3],v:.0012},
+ {id:'G275',kind:'freight',name:'Жезказган — Караганда',prio:'Нормальный',p:R(['Жезказган','Жарык','Караганда']),at:['Жезказган','Жарык',.5],v:.0006},
+];
+const TBY = Object.fromEntries(TRAINS.map(t=>[t.id,t]));
+function placeTrain(t){ t.t = between(t.p, t.at[0], t.at[1], t.at[2]); }
+TRAINS.forEach(placeTrain);
+const delayOf = t => (t.dl && t.dl[MODE]) || 0;
+const statusOf = t => (t.st && t.st[MODE]) || (delayOf(t) > 5 ? 'yellow' : 'green');
+const STAT_TXT = { green:'🟢 В графике', yellow:'🟡 Отклонение', red:'🔴 Критично' };
+
+/* ---------------- Утилиты ---------------- */
+const fmtHM = min => { const m=Math.round(min)+360; return String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); };
+let simSec = 9*3600+40*60, tick=0;
+const clockStr = s => [Math.floor(s/3600)%24, Math.floor(s/60)%60, s%60].map(v=>String(v).padStart(2,'0')).join(':');
+const nowMin = () => simSec/60 - 360;
+function plural(n, one, few, many){ const a=n%10,b=n%100; return (a===1&&b!==11)?one:(a>=2&&a<=4&&(b<10||b>=20))?few:many; }
+function animNum(el, from, to, dec, ms=1100, suf=''){
+  const t0=performance.now();
+  const step = now => { const k=Math.min(1,(now-t0)/ms), e=1-Math.pow(1-k,3);
+    el.textContent=(from+(to-from)*e).toFixed(dec)+suf; if(k<1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+function toast(msg, cls=''){
+  const d=document.createElement('div'); d.className=cls; d.innerHTML=msg; $('#toast').appendChild(d);
+  setTimeout(()=>{ d.style.transition='opacity .4s'; d.style.opacity='0'; setTimeout(()=>d.remove(),400); }, 4200);
+}
+function log(msg, cls=''){
+  const li=document.createElement('li'); li.className=cls+' new';
+  li.innerHTML=`<time>${clockStr(simSec)}</time><span>${msg}</span>`;
+  const ul=$('#log'); ul.prepend(li); while(ul.children.length>40) ul.lastChild.remove();
+}
+const idxClass = v => v>=85?'green':v>=75?'yellow':'red';
+const idxText  = v => v>=85?'🟢 Норма':v>=75?'🟡 Внимание':'🔴 Критично';
+const idxColor = v => ({green:C.green,yellow:C.amber,red:C.red})[idxClass(v)];
+
+/* ---------------- Шапка ---------------- */
+let shown = { index:0, delay:0, energy:0 };
+function renderHeader(){
+  const m=M();
+  animNum($('#idxVal'), shown.index, m.index, 1, 1200, '%');
+  animNum($('#kDelay'), shown.delay, m.delay, 0);
+  animNum($('#kEnergy'), shown.energy, m.energy, 1);
+  shown = { index:m.index, delay:m.delay, energy:m.energy };
+  const ring=$('#ringFg'), Cc=2*Math.PI*27; ring.style.strokeDashoffset = Cc*(1-m.index/100); ring.style.stroke = idxColor(m.index);
+  const pill=$('#idxPill'); pill.className='pill pill-'+idxClass(m.index); pill.textContent=idxText(m.index);
+  $('#kCulprit').innerHTML = m.delay ? `Виновник: <b>${m.culprit}</b>` : m.culprit;
+  $('#kConf').textContent = `${m.conf} ${plural(m.conf,'активный','активных','активных')}`;
+  $('#kConf').style.color = m.conf ? (m.conf>1?C.red:C.amber) : C.green;
+  $('#kConfWhere').textContent = m.where;
+}
+
+/* ---------------- Карта ---------------- */
+const map = L.map('map', { zoomControl:false, attributionControl:true, minZoom:4, maxZoom:18, zoomSnap:.5 }).fitBounds([[41.2,50.5],[55.3,84.5]], {padding:[10,10]});
+L.control.zoom({position:'topright'}).addTo(map);
+map.attributionControl.setPrefix('Leaflet');
+L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&hl=ru&gl=KZ&x={x}&y={y}&z={z}', { subdomains:'0123', maxZoom:20, attribution:'Картографические данные © Google' }).addTo(map);
+map.on('zoomstart', ()=>map.getContainer().classList.add('no-anim'));
+map.on('zoomend',   ()=>setTimeout(()=>map.getContainer().classList.remove('no-anim'),60));
+
+const layers = { main:L.layerGroup().addTo(map), zones:L.layerGroup().addTo(map) };
+LINES.forEach(ln=>{
+  const ll=trackOf(ln).pts;
+  L.polyline(ll,{color:'#ffffff',weight:7,opacity:.95,interactive:false,lineJoin:'round'}).addTo(layers.main);
+  L.polyline(ll,{color:'#0f7f78',weight:3.4,opacity:1,interactive:false,lineJoin:'round'}).addTo(layers.main);
+});
+Object.entries(ST).forEach(([n,ll])=>{
+  const big=['Астана','Алматы','Караганда','Актобе','Шымкент'].includes(n);
+  const mk=L.circleMarker(ll,{radius:big?5.5:3.5,color:'#061719',weight:2,fillColor:big?C.amber:'#cfe2e0',fillOpacity:1}).addTo(layers.main);
+  if(MAJOR.has(n)) mk.bindTooltip(n,{permanent:true,direction:'right',offset:[6,0],className:'st-lbl'});
+});
+
+const markers = {};
+const filt = { pass:true, freight:true, green:true, yellow:true, red:true };
+function iconFor(t){
+  const s=statusOf(t), stopped = isStopped(t);
+  return L.divIcon({ className:'train-icon', iconSize:[0,0],
+    html:`<div class="tm ${s} ${t.kind} ${stopped?'stopped':''}"><span class="dot"></span><span class="lbl">${t.id}</span></div>` });
+}
+function isStopped(t){ return !!(t.stop && t.stop[MODE]) || !!t._held; }
+function sectionName(t){
+  const {seg}=pointAt(t.p,t.t); const a=t.p.names[seg], b=t.p.names[seg+1]; return `перегон ${a} — ${b}`;
+}
+function speedOf(t){
+  if(isStopped(t)) return 0;
+  const base = t.kind==='pass' ? 104 : 62; return Math.round(base + 8*Math.sin(tick/9 + t.id.charCodeAt(1)));
+}
+function popupHtml(t){
+  const s=statusOf(t), d=delayOf(t), acc={green:C.green,yellow:C.amber,red:C.red}[s];
+  const kindTxt = t.kind==='pass' ? 'Пассажирский' : 'Грузовой';
+  let status = s==='green' ? '🟢 По графику' : `${s==='red'?'🔴':'🟡'} Задержка +${d} мин`;
+  let rows = `<dt>Маршрут</dt><dd>${t.name}</dd><dt>Статус</dt><dd>${status}${t.id==='P001'&&MODE==='breakdown'?' (неисправность состава)':''}</dd>
+    <dt>Положение</dt><dd>${sectionName(t)}</dd><dt>Скорость</dt><dd class="num">${speedOf(t)} км/ч${isStopped(t)?' (стоит)':''}</dd>`;
+  let btn='';
+  if(t.id==='P001' && MODE==='breakdown'){
+    rows += `<dt>Влияние</dt><dd>Вторичные задержки 3 составов, штраф <b style="color:${C.red}">−18.0</b> баллов</dd>`;
+    btn = `<button class="act" onclick="openWizard('breakdown')">⚡ Пересчитать график и устранить конфликт</button>`;
+  } else if(t.id==='G219' && MODE==='closure'){
+    rows += `<dt>Влияние</dt><dd>Задержаны 3 поезда на подходах к Астане, штраф <b style="color:${C.red}">−14.2</b> балла</dd>`;
+    btn = `<button class="act" onclick="openWizard('closure')">⚡ Пересчитать график и устранить конфликт</button>`;
+  } else if(t.id==='P001' && MODE.startsWith('breakdown_')){
+    rows += `<dt>Решение ИИ</dt><dd>Профиль скорости ATO обновлён, нитка перестроена</dd>`;
+  }
+  return `<div class="pop" style="--acc:${acc}"><div class="pop-id">№${t.id}</div>
+    <div class="pop-type">${kindTxt}, приоритет: ${t.prio.toLowerCase()}</div><dl>${rows}</dl>${btn}</div>`;
+}
+TRAINS.forEach(t=>{
+  const m=L.marker(pointAt(t.p,t.t).ll,{icon:iconFor(t),zIndexOffset:t.id==='P001'?1000:0});
+  m.bindPopup(()=>popupHtml(t),{maxWidth:320,minWidth:300,autoPanPadding:[40,40]});
+  markers[t.id]=m;
+});
+function refreshMarkers(){
+  let cnt={green:0,yellow:0,red:0}, vis=0;
+  TRAINS.forEach(t=>{
+    const s=statusOf(t); cnt[s]++;
+    const show = filt[t.kind] && filt[s]; const m=markers[t.id];
+    const key=s+(isStopped(t)?'s':''); if(m._key!==key){ m._key=key; m.setIcon(iconFor(t)); m.setZIndexOffset(s==='red'?1000:s==='yellow'?500:0); }
+    if(show && !map.hasLayer(m)) m.addTo(map); if(!show && map.hasLayer(m)) map.removeLayer(m);
+    if(show) vis++;
+    if(show && m.isPopupOpen()) m.setPopupContent(popupHtml(t));
+  });
+  $('#cG').textContent=cnt.green; $('#cY').textContent=cnt.yellow; $('#cR').textContent=cnt.red; $('#msTrains').textContent=vis;
+}
+function drawZones(){
+  layers.zones.clearLayers();
+  const add=(ll,color,dash,tip)=>{
+    L.polyline(ll,{color,weight:11,opacity:.28,lineCap:'round'}).addTo(layers.zones);
+    L.polyline(ll,{color,weight:4,opacity:1,dashArray:dash}).bindTooltip(tip,{sticky:true,className:'zone-tip'}).addTo(layers.zones);
+  };
+  add(slicePath(P_CORR, P_CORR.stT['Мойынты'], P_CORR.stT['Шыганак']), C.muted, '6 8', 'Технологическое окно ПЧ-14, 16:00–17:40');
+  const inc = between(P_CORR,'Караганда','Агадырь',.45);
+  if(MODE==='breakdown') add(slicePath(P_CORR, inc-.018, inc+.018), C.red, null, 'Занятость: неисправный состав №P001');
+  if(MODE==='breakdown_A'||MODE==='breakdown_B') add(slicePath(P_CORR, inc-.018, inc+.018), C.amber, '8 6', 'Ограничение 60 км/ч после устранения неисправности');
+  const ak=[P_CORR.stT['Астана'], P_CORR.stT['Караганда']];
+  if(MODE==='closure'||MODE==='closure_B') add(slicePath(P_CORR, ak[0], ak[1]), C.red, null, 'Перегон Астана — Караганда закрыт, 08:50–10:10');
+  if(MODE==='closure_A') add(slicePath(P_CORR, ak[0], ak[1]), C.amber, '8 6', 'Однопутное движение по правому пути');
+}
+
+/* движение поездов, 1 Гц */
+function moveTrains(){
+  TRAINS.forEach(t=>{
+    t._held=false;
+    if(t.stop && t.stop[MODE]) return;
+    let v=t.v*((t.boost&&t.boost[MODE])||1);
+    let nt=t.t+v;
+    const h=t.hold && t.hold[MODE];
+    if(h){ const ht=t.p.stT[h]; if(t.t<=ht && nt>=ht){ nt=ht; t._held=true; } if(Math.abs(t.t-ht)<1e-6){ nt=ht; t._held=true; } }
+    if(t.follow){ const L1=TBY[t.follow]; if(L1.p===t.p && L1.t>t.t && nt>L1.t-.022){ nt=Math.max(t.t,L1.t-.022); t._held = isStopped(L1); } }
+    if(nt>=1 && !t._held) nt=0;
+    t.t=Math.min(nt,1);
+  });
+  TRAINS.forEach(t=>markers[t.id].setLatLng(pointAt(t.p,t.t).ll));
+  const moving=TRAINS.filter(t=>!isStopped(t)); $('#msSpeed').textContent = Math.round(moving.reduce((a,t)=>a+speedOf(t),0)/(moving.length||1));
+}
+function setupScene(m){
+  TRAINS.forEach(placeTrain);
+  if(m==='closure'){ // поезда на подходах к закрытому перегону
+    TBY.G219.t = 0.004;
+    TBY.P031.t = between(TBY.P031.p,'Кокшетау','Астана',.85);
+    TBY.P045.t = between(TBY.P045.p,'Есиль','Астана',.86);
+  }
+  TRAINS.forEach(t=>markers[t.id].setLatLng(pointAt(t.p,t.t).ll));
+}
+
+/* ---------------- Поездограмма ---------------- */
+const GST = [['Астана',0],['Осакаровка',110],['Караганда',225],['Агадырь',395],['Мойынты',565],['Шыганак',720],['Шу',1035],['Отар',1150],['Алматы',1315]];
+const THREADS = [
+ {id:'P001',c:C.red,  plan:[[0,0],[140,225],[150,225],[290,395],[298,395],[400,565],[410,565],[540,720],[700,1035]],
+   act:{breakdown:[[0,0],[140,225],[150,225],[190,300],[235,300],[335,395],[343,395],[445,565],[455,565],[585,720],[745,1035]],
+        breakdown_A:[[0,0],[140,225],[150,225],[190,300],[235,300],[318,395],[322,395],[415,565],[420,565],[550,720],[712,1035]],
+        breakdown_B:[[0,0],[140,225],[150,225],[190,300],[235,300],[326,395],[332,395],[427,565],[433,565],[565,720],[725,1035]]}},
+ {id:'P014',c:C.sky,  plan:[[100,720],[230,565],[240,565],[290,395],[300,395],[420,225],[430,225],[560,0]],
+   act:{breakdown:[[100,720],[230,565],[240,565],[290,395],[340,395],[460,225],[468,225],[598,0]],
+        breakdown_A:[[100,720],[230,565],[240,565],[290,395],[322,395],[434,225],[438,225],[564,0]],
+        breakdown_B:[[100,720],[230,565],[240,565],[290,395],[330,395],[446,225],[452,225],[572,0]]}},
+ {id:'G203',c:C.violet, plan:[[30,0],[160,225],[180,225],[330,395],[345,395],[490,565]],
+   act:{breakdown:[[30,0],[160,225],[205,225],[355,395],[370,395],[515,565]],
+        breakdown_A:[[30,0],[160,225],[183,225],[333,395],[345,395],[490,565]],
+        breakdown_B:[[30,0],[160,225],[195,225],[345,395],[355,395],[499,565]]}},
+ {id:'G117',c:C.green, plan:[[260,720],[395,565],[412,565],[537,395],[550,395],[685,225]],
+   act:{breakdown:[[260,720],[395,565],[450,565],[575,395],[588,395],[720,230]],
+        breakdown_A:[[260,720],[395,565],[417,565],[542,395],[553,395],[688,225]],
+        breakdown_B:[[260,720],[395,565],[427,565],[552,395],[563,395],[698,225]]}},
+ {id:'G219',c:'#e8c9a0', plan:[[180,0],[310,225],[330,225],[480,395],[495,395],[640,565]],
+   act:{closure:[[180,0],[255,0],[385,225],[405,225],[555,395],[570,395],[715,565]],
+        closure_A:[[180,0],[205,0],[335,225],[350,225],[500,395],[512,395],[657,565]],
+        closure_B:[[180,0],[228,0],[358,225],[375,225],[525,395],[538,395],[683,565]]}},
+ {id:'P022',c:C.amber, plan:[[330,0],[460,225],[468,225],[600,395],[606,395],[700,565]], act:{}},
+];
+let gChart=null;
+function graphSolidLabel(){ return MODE==='normal' ? 'Факт (по графику)' : MODE.includes('_') ? 'Оптимизировано ИИ' : 'Прогноз без вмешательства'; }
+function graphOption(){
+  const now=nowMin(); const areas=[];
+  const area=(name,x0,y0,x1,y1,col,fill,dash)=>areas.push([{name,xAxis:x0,yAxis:y0,itemStyle:{color:fill,borderColor:col,borderWidth:1,borderType:dash?'dashed':'solid'}},{xAxis:x1,yAxis:y1}]);
+  area('Окно ПЧ-14',600,565,700,720,C.muted,'rgba(159,182,181,.10)',true);
+  if(MODE==='breakdown') area('Неисправность P001',190,285,235,315,C.red,'rgba(255,107,82,.22)');
+  if(MODE==='breakdown_A'||MODE==='breakdown_B') area('Огранич. 60 км/ч',190,285,235,315,C.amber,'rgba(255,181,45,.16)',true);
+  if(MODE==='closure'||MODE==='closure_B') area('Перегон закрыт',170,0,250,225,C.red,'rgba(255,107,82,.20)');
+  if(MODE==='closure_A') area('Однопутное движение',170,0,250,225,C.amber,'rgba(255,181,45,.14)',true);
+  const S=[{
+    type:'line', name:'_st', data:[[0,0]], symbol:'none', lineStyle:{opacity:0}, silent:true, z:1,
+    markLine:{ silent:true, symbol:['none','none'], animation:false, lineStyle:{color:'rgba(159,182,181,.16)',type:'solid',width:1},
+      label:{position:'start',formatter:'{b}',color:C.muted,fontFamily:FONT,fontSize:11.5,distance:10},
+      data:GST.map(([n,k])=>({name:n,yAxis:k})) },
+    markArea:{ silent:false, label:{color:C.ink,fontFamily:FONT,fontSize:11,position:'insideTop',distance:4}, data:areas }
+  },{
+    type:'line', name:'_now', data:[[0,0]], symbol:'none', lineStyle:{opacity:0}, silent:true,
+    markLine:{ silent:true, symbol:['none','none'], animation:false, lineStyle:{color:C.amber,width:1.5,type:'solid'},
+      label:{formatter:'Сейчас '+fmtHM(now),color:C.amber,fontFamily:FONT,fontWeight:600,position:'start'}, data:[{xAxis:now}] }
+  }];
+  THREADS.forEach(th=>{
+    const act = th.act[MODE] || th.plan;
+    const changed = act!==th.plan;
+    S.push({ type:'line', name:th.id+' (план)', data:th.plan, showSymbol:false, triggerLineEvent:true, z:2,
+      lineStyle:{color:th.c,width:1.4,type:[6,5],opacity:changed?.55:.25}, emphasis:{disabled:true} });
+    S.push({ type:'line', name:th.id, data:act, showSymbol:false, triggerLineEvent:true, z:3,
+      lineStyle:{color:th.c,width:2.6}, emphasis:{lineStyle:{width:4}},
+      endLabel:{show:true,formatter:th.id,color:th.c,fontFamily:FONT,fontWeight:600} });
+  });
+  return {
+    backgroundColor:'transparent', animationDuration:900, textStyle:{fontFamily:FONT},
+    grid:{left:96,right:56,top:38,bottom:62},
+    tooltip:{ trigger:'item', backgroundColor:C.paper, borderColor:C.line, textStyle:{color:C.ink,fontFamily:FONT,fontSize:12},
+      formatter:p=>{ if(p.seriesName.startsWith('_')) return p.name||''; if(p.componentType==='markArea') return p.name;
+        const th=THREADS.find(x=>p.seriesName.startsWith(x.id)); const pl=th.plan, ac=th.act[MODE]||th.plan;
+        const dl=Math.round(ac[ac.length-1][0]-pl[pl.length-1][0]);
+        return `<b>№${th.id}</b> ${p.seriesName.includes('план')?'нормативный график':graphSolidLabel().toLowerCase()}<br>Отклонение на конечной точке: <b>${dl>0?'+':''}${dl} мин</b>`; } },
+    xAxis:{ type:'value', min:0, max:720, interval:60, axisLabel:{formatter:fmtHM,color:C.muted}, axisLine:{lineStyle:{color:C.line}},
+      splitLine:{show:true,lineStyle:{color:'rgba(43,75,78,.45)'}}, minorTick:{show:true,splitNumber:6}, minorSplitLine:{show:true,lineStyle:{color:'rgba(43,75,78,.18)'}} },
+    yAxis:{ type:'value', min:0, max:1315, inverse:true, axisLabel:{show:false}, axisTick:{show:false}, splitLine:{show:false}, axisLine:{show:false} },
+    dataZoom:[{type:'inside',xAxisIndex:0,filterMode:'none'},{type:'slider',xAxisIndex:0,height:16,bottom:16,filterMode:'none',borderColor:C.line,
+      backgroundColor:'rgba(12,38,41,.6)',fillerColor:'rgba(121,200,193,.15)',handleStyle:{color:C.teal},textStyle:{color:C.muted},labelFormatter:v=>fmtHM(v),
+      dataBackground:{lineStyle:{opacity:0},areaStyle:{opacity:0}}}],
+    series:S
+  };
+}
+function renderGraph(){
+  $('#gSolid').textContent = graphSolidLabel();
+  $('#gSub').textContent = MODE==='normal' ? 'Все нитки совпадают с нормативным графиком.' :
+    MODE.includes('_') ? 'Сплошная линия: график после оптимизации ИИ. Пунктир: нормативный график.' :
+    'Сплошная линия: прогноз без вмешательства диспетчера. Пунктир: нормативный график.';
+  if(!gChart) return; gChart.setOption(graphOption(), {notMerge:true});
+}
+
+/* ---------------- ATO ---------------- */
+const ATO_CFG = {
+  P001:{ sect:'Караганда — Агадырь', st:'Агадырь', len:170, cruise:140, coast:142, kind:'pass', eta:'11:18:40', en:'−412 кВт·ч (−7.4%)',
+         lim:[[0,5,40],[5,48,120],[48,62,70],[62,118,140],[118,130,100],[130,160,120],[160,166,60],[166,170,40]] },
+  P014:{ sect:'Агадырь — Караганда', st:'Караганда', len:170, cruise:140, coast:138, kind:'pass', eta:'12:04:15', en:'−388 кВт·ч (−6.9%)',
+         lim:[[0,4,40],[4,10,60],[10,40,120],[40,52,100],[52,108,140],[108,122,70],[122,165,120],[165,170,40]] },
+  G203:{ sect:'Караганда — Агадырь', st:'Агадырь', len:170, cruise:80, coast:128, kind:'freight', eta:'12:41:05', en:'−1 180 кВт·ч (−9.2%)',
+         lim:[[0,5,40],[5,48,80],[48,62,70],[62,118,80],[118,130,80],[130,160,80],[160,166,60],[166,170,40]] },
+};
+let atoId='P001', atoX=60, aChart=null, PROF={};
+function limAt(cfg,x){ for(const [a,b,v] of cfg.lim) if(x>=a && x<=b) return v; return cfg.lim[cfg.lim.length-1][2]; }
+function buildProfile(id){
+  const cfg=ATO_CFG[id], dx=0.5, n=Math.round(cfg.len/dx)+1, X=[], rec=[], act=[];
+  const aR=cfg.kind==='pass'?900:380, aA=cfg.kind==='pass'?1300:520, b=cfg.kind==='pass'?650:300, coastDec=cfg.kind==='pass'?150:70;
+  for(let i=0;i<n;i++) X.push(+(i*dx).toFixed(1));
+  // рекомендация ИИ: запас 6–8 км/ч, выбег с coast-км
+  rec[0]=0; for(let i=1;i<n;i++){ const x=X[i], cap=Math.min(limAt(cfg,x)-(cfg.kind==='pass'?8:5), cfg.cruise);
+    const v2 = x>=cfg.coast ? rec[i-1]**2-2*coastDec*dx : rec[i-1]**2+2*aR*dx; rec[i]=Math.min(cap, Math.sqrt(Math.max(0,v2))); }
+  const fwd=rec.slice();
+  rec[n-1]=0; for(let i=n-2;i>=0;i--){ rec[i]=Math.min(rec[i], Math.sqrt(rec[i+1]**2+2*b*dx)); }
+  // фактическое ведение: ближе к ограничению, без выбега
+  act[0]=0; for(let i=1;i<n;i++){ const x=X[i], cap=limAt(cfg,x)-2+2.2*Math.sin(x/6);
+    act[i]=Math.min(cap, Math.sqrt(act[i-1]**2+2*aA*dx)); }
+  act[n-1]=0; for(let i=n-2;i>=0;i--){ act[i]=Math.min(act[i], Math.sqrt(act[i+1]**2+2*(b*1.25)*dx)); }
+  const lim=[]; cfg.lim.forEach(([a,bb,v],k)=>{ lim.push([a,v]); lim.push([bb,v]); });
+  // начало торможения: первая точка после выбега, где кривая ИИ уходит ниже кривой свободного выбега
+  let brake=cfg.len; for(let i=Math.round(cfg.coast/dx);i<n;i++){ if(rec[i] < fwd[i]-0.5){ brake=X[i]; break; } }
+  return {X,rec,act,lim,brake,cfg};
+}
+Object.keys(ATO_CFG).forEach(k=>PROF[k]=buildProfile(k));
+function atoOption(){
+  const P=PROF[atoId], cfg=P.cfg, idx=Math.round(atoX/0.5);
+  return {
+    backgroundColor:'transparent', textStyle:{fontFamily:FONT}, animation:false,
+    grid:{left:56,right:26,top:40,bottom:44},
+    tooltip:{trigger:'axis',backgroundColor:C.paper,borderColor:C.line,textStyle:{color:C.ink,fontSize:12},
+      formatter:ps=>`<b>${ps[0].axisValue} км</b><br>`+ps.map(p=>`${p.marker}${p.seriesName}: <b>${Math.round(p.value[1])}</b> км/ч`).join('<br>')},
+    xAxis:{type:'value',min:0,max:cfg.len,name:'км',nameTextStyle:{color:C.muted},axisLabel:{color:C.muted},axisLine:{lineStyle:{color:C.line}},splitLine:{lineStyle:{color:'rgba(43,75,78,.35)'}}},
+    yAxis:{type:'value',min:0,max:160,interval:20,name:'км/ч',nameTextStyle:{color:C.muted},axisLabel:{color:C.muted},splitLine:{lineStyle:{color:'rgba(43,75,78,.35)'}}},
+    series:[
+      {name:'Ограничение',type:'line',data:P.lim,symbol:'none',lineStyle:{color:C.red,width:2.2},z:2},
+      {name:'Рекомендация ИИ',type:'line',data:P.X.map((x,i)=>[x,P.rec[i]]),symbol:'none',lineStyle:{color:C.green,width:2.6},z:3,
+        areaStyle:{color:'rgba(79,209,161,.06)'},
+        markArea:{silent:true,itemStyle:{color:'rgba(79,209,161,.10)',borderColor:'rgba(79,209,161,.5)',borderType:'dashed',borderWidth:1},
+          label:{color:C.green,fontFamily:FONT,fontWeight:600,position:'insideTop'},data:[[{name:'Выбег',xAxis:cfg.coast},{xAxis:P.brake}]]},
+        markPoint:{symbol:'pin',symbolSize:38,itemStyle:{color:C.green},label:{color:'#061719',fontSize:10,fontWeight:700,formatter:cfg.coast+''},
+          data:[{coord:[cfg.coast,P.rec[Math.round(cfg.coast/0.5)]]}]}},
+      {name:'Фактическая',type:'line',data:P.X.slice(0,idx+1).map((x,i)=>[x,P.act[i]]),symbol:'none',lineStyle:{color:C.sky,width:2.6},z:4,
+        markLine:{silent:true,symbol:['none','circle'],symbolSize:8,lineStyle:{color:C.sky,type:'dashed',width:1},
+          label:{formatter:`№${atoId}`,color:C.sky,fontWeight:600},data:[{xAxis:atoX}]}},
+    ]
+  };
+}
+function renderAtoCards(){
+  const P=PROF[atoId], cfg=P.cfg, i=Math.min(Math.round(atoX/0.5),P.X.length-1);
+  const a=Math.round(P.act[i]), r=Math.round(P.rec[i]), l=limAt(cfg,atoX);
+  $('#aAct').textContent=a; $('#aRec').textContent=r; $('#aLim').textContent=l;
+  const d=a-r; $('#aDev').style.left = Math.max(2,Math.min(98, 50 + d*2.2))+'%';
+  $('#aDevT').textContent = Math.abs(d)<=5 ? 'В коридоре ±5 км/ч' : (d>0?`Выше рекомендации на ${d} км/ч`:`Ниже рекомендации на ${-d} км/ч`);
+  $('#aDevT').style.color = Math.abs(d)<=5 ? C.green : C.amber;
+  const vc=Math.round(P.rec[Math.round(cfg.coast/0.5)]), vb=Math.round(P.rec[Math.round(P.brake/0.5)]);
+  if(atoX < cfg.coast){
+    $('#aAdv').textContent=`Рекомендуется выбег на ${cfg.coast} км`;
+    $('#aAdvS').textContent=`Через ${Math.round(cfg.coast-atoX)} км отключить тягу при ${vc} км/ч, скорость снизится до ${vb} км/ч к входному сигналу ст. ${cfg.st}`;
+  } else if(atoX < P.brake){
+    $('#aAdv').textContent='Выбег: тяга отключена';
+    $('#aAdvS').textContent=`Держать выбег до ${Math.round(P.brake)} км, затем плавное служебное торможение`;
+  } else {
+    $('#aAdv').textContent=`Торможение к ст. ${cfg.st}`;
+    $('#aAdvS').textContent='Рекуперативное торможение, остановка у знака «Остановка локомотива»';
+  }
+  $('#aEta').textContent=`Прогноз прибытия на ст. ${cfg.st}: ${cfg.eta}`;
+  $('#aEn').textContent=cfg.en;
+  const next=cfg.lim.find(([s,,v])=>s>atoX && v<l) || cfg.lim.find(([s])=>s>atoX);
+  $('#aNext').textContent = next ? `${next[2]} км/ч с ${next[0]} км` : 'Конец участка';
+  $('#aNextS').textContent = next ? (next[2]<=70 && next[0]<100 ? 'Ремонт пути, предупреждение №17' : next[2]<=60 ? 'Входная горловина станции' : 'Кривая малого радиуса') : `Остановка на ст. ${cfg.st}`;
+  $('#atoSub').textContent=`Участок ${cfg.sect}, ${cfg.len} км. Положение поезда: ${atoX.toFixed(0)} км`;
+}
+function renderAto(){ if(aChart) aChart.setOption(atoOption(),{notMerge:false,lazyUpdate:true}); renderAtoCards(); }
+$$('#atoSel button').forEach(b=>b.onclick=()=>{ $$('#atoSel button').forEach(x=>x.classList.toggle('on',x===b)); atoId=b.dataset.t; atoX=Math.min(atoX,ATO_CFG[atoId].len); if(aChart) aChart.setOption(atoOption(),{notMerge:true}); renderAtoCards(); });
+
+/* ---------------- Индекс и факторы ---------------- */
+let iGauge=null, iBars=null, iTrend=null;
+const TREND=[];
+(function seedTrend(){ // последние 60 минут: падение в 09:12 из-за отказа P001
+  for(let k=60;k>0;k--){ const t=simSec-k*60; const mins=(t/60)%1440; let v = mins < 9*60+12 ? 96.8+Math.sin(k/3)*.6 : 79.5+Math.sin(k/2)*.4;
+    if(mins>=9*60+12 && mins<9*60+15) v=86-(mins-(9*60+12))*2.2; TREND.push([clockStr(t).slice(0,5), +v.toFixed(1)]); }
+})();
+function factors(){ const f=M().f; return Object.keys(f).map(k=>({k, n:FACTOR_META[k].n(MODE), d:FACTOR_META[k].d(MODE), v:f[k]})); }
+function renderIndex(){
+  const m=M(); const fs=factors(); const sorted=[...fs].sort((a,b)=>Math.abs(b.v)-Math.abs(a.v));
+  $('#iSum').textContent = `70 + (${fs.reduce((a,f)=>a+f.v,0).toFixed(1)}) = ${m.index.toFixed(1)}%`;
+  $('#iExplain').innerHTML = m.index<85 ? `Основная причина снижения: <b style="color:${C.ink}">${sorted[0].n.toLowerCase()}</b> (${sorted[0].v.toFixed(1)}). Откройте мастер перепланирования, чтобы оценить варианты ИИ.` : 'Индекс в зелёной зоне. Отклонения компенсированы рекомендациями ИИ.';
+  $('#iTable').innerHTML = sorted.slice(0,5).map((f,i)=>`<tr class="top"><td><span class="rank">${i+1}</span>${f.n}</td><td style="color:${C.muted}">${f.d}</td>
+    <td class="v" style="color:${f.v<0?C.red:f.v>0?C.green:C.muted}">${f.v>0?'+':''}${f.v.toFixed(1)}</td></tr>`).join('');
+  if(iGauge) iGauge.setOption({series:[{data:[{value:m.index}],progress:{itemStyle:{color:idxColor(m.index)}},detail:{color:idxColor(m.index)}}]});
+  if(iBars){ const asc=[...sorted].reverse();
+    iBars.setOption({ yAxis:{data:asc.map(f=>f.n)}, series:[{data:asc.map(f=>({value:f.v,itemStyle:{color:f.v<0?C.red:C.green,borderRadius:f.v<0?[4,0,0,4]:[0,4,4,0]}}))}] }); }
+  if(iTrend) iTrend.setOption({ xAxis:{data:TREND.map(p=>p[0])}, series:[{data:TREND.map(p=>p[1])}] });
+}
+function initIndexCharts(){
+  iGauge=echarts.init($('#iGauge')); iBars=echarts.init($('#iBars')); iTrend=echarts.init($('#iTrend'));
+  iGauge.setOption({ series:[{ type:'gauge', startAngle:210, endAngle:-30, min:0, max:100, radius:'84%', center:['50%','58%'],
+    progress:{show:true,width:16,roundCap:true}, pointer:{show:false},
+    axisLine:{roundCap:true,lineStyle:{width:16,color:[[.75,'rgba(255,107,82,.22)'],[.85,'rgba(255,181,45,.22)'],[1,'rgba(79,209,161,.22)']]}},
+    axisTick:{show:false}, splitLine:{distance:-30,length:6,lineStyle:{color:C.line,width:2}}, axisLabel:{distance:-12,color:C.muted,fontSize:10,fontFamily:FONT},
+    title:{offsetCenter:[0,'34%'],color:C.muted,fontSize:12,fontFamily:FONT},
+    detail:{offsetCenter:[0,'2%'],fontSize:40,fontFamily:DISP,fontWeight:700,formatter:v=>v.toFixed(1)+'%'},
+    data:[{value:M().index,name:'ИКД'}] }] });
+  iBars.setOption({ grid:{left:12,right:56,top:16,bottom:28,containLabel:true}, textStyle:{fontFamily:FONT},
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow'},backgroundColor:C.paper,borderColor:C.line,textStyle:{color:C.ink}},
+    xAxis:{type:'value',min:-20,max:15,axisLabel:{color:C.muted,formatter:v=>(v>0?'+':'')+v},splitLine:{lineStyle:{color:'rgba(43,75,78,.35)'}}},
+    yAxis:{type:'category',data:[],axisLabel:{color:C.ink,fontSize:12.5},axisLine:{lineStyle:{color:C.line}},axisTick:{show:false}},
+    series:[{type:'bar',barWidth:16,data:[],label:{show:true,position:'outside',color:C.ink,fontFamily:DISP,fontSize:11,formatter:p=>(p.value>0?'+':'')+p.value.toFixed(1)},
+      markLine:{silent:true,symbol:'none',lineStyle:{color:C.muted},label:{show:false},data:[{xAxis:0}]}}] });
+  iTrend.setOption({ grid:{left:40,right:16,top:12,bottom:26}, textStyle:{fontFamily:FONT},
+    tooltip:{trigger:'axis',backgroundColor:C.paper,borderColor:C.line,textStyle:{color:C.ink},valueFormatter:v=>v+'%'},
+    xAxis:{type:'category',data:[],boundaryGap:false,axisLabel:{color:C.muted,interval:14},axisLine:{lineStyle:{color:C.line}}},
+    yAxis:{type:'value',min:60,max:100,interval:10,axisLabel:{color:C.muted},splitLine:{lineStyle:{color:'rgba(43,75,78,.35)'}}},
+    visualMap:{show:false,pieces:[{lt:75,color:C.red},{gte:75,lt:85,color:C.amber},{gte:85,color:C.green}]},
+    series:[{type:'line',data:[],symbol:'none',lineStyle:{width:2.2},areaStyle:{opacity:.08}}] });
+  renderIndex();
+}
+
+/* ---------------- Вкладки ---------------- */
+let view='map';
+function showView(v){
+  view=v; $$('.tab').forEach(t=>t.classList.toggle('active',t.dataset.view===v)); $$('.view').forEach(s=>s.classList.toggle('active',s.id==='view-'+v));
+  requestAnimationFrame(()=>{
+    if(v==='map') map.invalidateSize();
+    if(v==='graph'){ if(!gChart){ gChart=echarts.init($('#gChart')); } gChart.resize(); renderGraph(); }
+    if(v==='ato'){ if(!aChart){ aChart=echarts.init($('#aChart')); aChart.setOption(atoOption()); } aChart.resize(); renderAto(); }
+    if(v==='index'){ if(!iGauge) initIndexCharts(); [iGauge,iBars,iTrend].forEach(c=>c.resize()); renderIndex(); }
+  });
+  $('#sidebar').classList.remove('open');
+}
+$$('.tab').forEach(t=>t.onclick=()=>showView(t.dataset.view));
+window.addEventListener('resize',()=>{ [gChart,aChart,iGauge,iBars,iTrend].forEach(c=>c&&c.resize()); map.invalidateSize(); });
+
+/* ---------------- Слои и фильтры ---------------- */
+$$('.layer').forEach(b=>b.onclick=()=>{
+  const on = b.getAttribute('aria-pressed')!=='true'; b.setAttribute('aria-pressed',on); const k=b.dataset.layer;
+  if(k==='main'||k==='zones'){ on?layers[k].addTo(map):map.removeLayer(layers[k]); } else { filt[k]=on; refreshMarkers(); }
+});
+$$('.chip').forEach(b=>b.onclick=()=>{ const on=b.getAttribute('aria-pressed')!=='true'; b.setAttribute('aria-pressed',on); filt[b.dataset.f]=on; refreshMarkers(); });
+$('#btnSb').onclick=()=>$('#sidebar').classList.toggle('open');
+
+/* ---------------- Смена режима ---------------- */
+function setMode(m, scene){
+  MODE=m; if(scene) setupScene(m);
+  renderHeader(); refreshMarkers(); drawZones(); renderGraph();
+  TREND.push([clockStr(simSec).slice(0,5), M().index]); if(TREND.length>60) TREND.shift();
+  if(iGauge) renderIndex();
+}
+
+/* ---------------- Сценарии ---------------- */
+$('#sBreak').onclick=()=>{
+  setMode('breakdown',true); showView('map');
+  log('P001: отказ тягового двигателя, остановка на перегоне Караганда — Агадырь','r');
+  log('ИИ: конфликт скрещения P001 / P014 на ст. Агадырь, каскад на 3 поезда','y');
+  map.flyTo(pointAt(P_CORR,TBY.P001.t).ll, 7, {duration:1.2});
+  setTimeout(()=>{ markers.P001.openPopup(); }, 1300);
+  setTimeout(()=>openWizard('breakdown'), 2600);
+};
+$('#sClose').onclick=()=>{
+  setMode('closure',true); showView('map');
+  log('ДНЦ: перегон Астана — Караганда закрыт, 08:50–10:10','r');
+  log('ИИ: 3 поезда на подходах к Астане, 2 конфликта','y');
+  map.flyToBounds([ST['Астана'],ST['Караганда']], {padding:[120,120], duration:1.2, maxZoom:8});
+  setTimeout(()=>openWizard('closure'), 1700);
+};
+$('#sReset').onclick=()=>{
+  closeWizard(); setMode('normal',true); map.flyToBounds([[41.2,50.5],[55.3,84.5]],{duration:1});
+  log('Система: все поезда по нормативному графику','g'); toast('Сброс выполнен: движение по графику');
+};
+
+/* ---------------- Мастер перепланирования ---------------- */
+const WZ = {
+  breakdown:{
+    title:'Конфликт скрещения на ст. Агадырь',
+    text:'Задержка №P001 (+45 мин, неисправность тягового двигателя) вызывает каскадный сбой 3 поездов. Без вмешательства индекс качества останется на уровне 79.5%.',
+    aff:[['P014','Пассажирский','Ожидание скрещения на ст. Агадырь','+38 мин'],['G203','Грузовой','Занятость блок-участка Караганда — Агадырь','+25 мин'],['G117','Грузовой','Скрещение на ст. Мойынты','+38 мин']],
+    pen:'−18.0',
+    A:{t:'Перестроение ниток + корректировка профиля скорости',d:'Скрещение P001 / P014 переносится, P001 получает нагонный профиль ATO в пределах ограничений, G117 отправляется со ст. Мойынты раньше.',
+       mode:'breakdown_A', dDelay:30, energy:5.1,
+       acts:[['P001','Профиль скорости ATO: нагон 15 мин без превышения ограничений, выбег на 142 км'],['P014','Скрещение на ст. Агадырь сокращено до 4 мин'],['G203','Отправление со ст. Караганда в 09:03'],['G117','Отправление со ст. Мойынты в 12:57, скрещение с P001']]},
+    B:{t:'Обгон на ближайшей станции',d:'P001 обгоняет G203 на ст. Агадырь. Решение проще для диспетчера, но грузовые поезда теряют больше времени.',
+       mode:'breakdown_B', dDelay:18, energy:4.6,
+       acts:[['G203','Отстой на 2-м пути ст. Агадырь для обгона'],['P001','Безостановочный пропуск по главному пути'],['P014','Скрещение на ст. Агадырь, ожидание 12 мин'],['G117','Отправление со ст. Мойынты в 13:07']]},
+  },
+  closure:{
+    title:'Закрытие перегона Астана — Караганда',
+    text:'Внеплановое закрытие перегона на 80 минут блокирует отправление G219 и приём пассажирских поездов в Астане. Обнаружено 2 конфликта.',
+    aff:[['G219','Грузовой','Задержан на ст. Астана до открытия перегона','+75 мин'],['P031','Пассажирский','Занятость приёмо-отправочных путей ст. Астана','+20 мин'],['P045','Пассажирский','Ожидание приёма на ст. Астана','+15 мин']],
+    pen:'−14.2',
+    A:{t:'Однопутное движение по правому пути + перестроение ниток',d:'Открывается движение по одному пути перегона с пакетным пропуском, пассажирские принимаются на освобождённые пути.',
+       mode:'closure_A', dDelay:80, energy:4.9,
+       acts:[['G219','Отправление по правому пути в 09:25, пакетом с P022'],['P031','Приём на 3-й путь ст. Астана'],['P045','Приём по графику'],['ДНЦ','Приказ на однопутное движение, ограничение 60 км/ч']]},
+    B:{t:'Отстой поездов до открытия перегона',d:'Поезда ожидают на станциях Астана и Осакаровка. Решение безопаснее в части нагрузки на диспетчера, но задержки выше.',
+       mode:'closure_B', dDelay:62, energy:3.6,
+       acts:[['G219','Отстой на ст. Астана до 10:10'],['P031','Приём на 5-й путь ст. Астана'],['P045','Приём с задержкой 10 мин']]},
+  }
+};
+let wz={scn:'breakdown',step:1,pick:'A'};
+function openWizard(scn){
+  wz={scn,step:1,pick:'A'}; map.closePopup();
+  $('#wzSub').textContent = scn==='breakdown' ? 'Нештатная ситуация: неисправность №P001' : 'Нештатная ситуация: закрытие перегона';
+  $('#wz').classList.add('open'); renderWz(); setTimeout(()=>$('#wzNext').focus(),50);
+}
+function closeWizard(){ $('#wz').classList.remove('open'); }
+$('#wzX').onclick=closeWizard;
+$('#wz').addEventListener('click',e=>{ if(e.target.id==='wz') closeWizard(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeWizard(); });
+$('#wzBack').onclick=()=>{ if(wz.step>1){ wz.step--; renderWz(); } };
+$('#wzNext').onclick=()=>{
+  if(wz.step===1){ wz.step=2; renderWz(true); }
+  else if(wz.step===2){ wz.step=3; renderWz(); }
+  else applyPlan();
+};
+function metric(label,val,col){ return `<div><small>${label}</small><b class="num" style="color:${col||C.ink}">${val}</b></div>`; }
+function renderWz(calc){
+  const W=WZ[wz.scn], base=MODES[wz.scn];
+  $$('.wz-step').forEach(s=>{ const n=+s.dataset.s; s.className='wz-step'+(n===wz.step?' on':n<wz.step?' done':''); });
+  $('#wzBack').disabled = wz.step===1;
+  $('#wzNext').textContent = wz.step===3 ? 'Применить оптимизированный график' : 'Далее';
+  const body=$('#wzBody');
+  if(wz.step===1){
+    body.innerHTML = `<div class="alert"><div style="font-size:24px">⚠️</div><div><div style="font-weight:700;font-size:15px">${W.title}</div>
+      <div style="color:var(--muted);margin-top:4px;line-height:1.45">${W.text}</div></div></div>
+      <table class="aff">${W.aff.map(a=>`<tr><td>№${a[0]}</td><td style="color:var(--muted)">${a[1]}</td><td>${a[2]}</td><td class="d">${a[3]}</td></tr>`).join('')}</table>
+      <div class="var-m" style="margin-top:16px">${metric('Индекс сейчас',base.index.toFixed(1)+'%',idxColor(base.index))}${metric('Суммарная задержка',base.delay+' мин',C.red)}${metric('Штраф за инцидент',W.pen+' баллов',C.red)}</div>`;
+  } else if(wz.step===2){
+    if(calc){
+      $('#wzNext').disabled=true;
+      body.innerHTML = `<div class="calc"><div style="font-family:var(--display);font-size:16px;font-weight:600">ИИ подбирает варианты</div>
+        <div style="color:var(--muted);margin-top:6px">Проверено вариантов: <b class="num" id="wzCnt" style="color:var(--ink)">0</b> с учётом приоритетов, интервалов и окон</div><div class="bar"><i id="wzBar"></i></div></div>`;
+      requestAnimationFrame(()=>requestAnimationFrame(()=>$('#wzBar').style.width='100%'));
+      animNum($('#wzCnt'),0,1248,0,1100);
+      setTimeout(()=>{ $('#wzNext').disabled=false; if(wz.step===2) renderWz(false); },1250);
+      return;
+    }
+    const card=(k,v)=>{ const to=MODES[v.mode].index;
+      return `<button class="var" role="radio" aria-checked="${wz.pick===k}" data-k="${k}">
+        <div class="var-h"><span class="var-t">Вариант ${k === 'A' ? 'А' : 'Б'}: ${v.t}</span>${k==='A'?'<span class="rec">Рекомендуется</span>':''}</div>
+        <div style="color:var(--muted);font-size:13px;margin-top:6px;line-height:1.45">${v.d}</div>
+        <div class="var-m">${metric('Индекс качества',`${base.index.toFixed(1)}% → ${to.toFixed(1)}%`,idxColor(to))}${metric('Задержка',`−${v.dDelay} мин`,C.green)}${metric('Экономия энергии',`+${v.energy.toFixed(1)}%`,C.green)}</div></button>`; };
+    body.innerHTML = `<div role="radiogroup" aria-label="Варианты ИИ">${card('A',W.A)}${card('B',W.B)}</div>`;
+    $$('.var').forEach(b=>b.onclick=()=>{ wz.pick=b.dataset.k; renderWz(false); });
+  } else {
+    const v=W[wz.pick], to=MODES[v.mode].index;
+    body.innerHTML = `<div class="alert amber"><div style="font-size:24px">🧭</div><div><div style="font-weight:700;font-size:15px">Вариант ${wz.pick==='A'?'А':'Б'}: ${v.t}</div>
+      <div style="color:var(--muted);margin-top:4px">Будут сформированы рекомендации для машинистов и поездного диспетчера. Решение принимает ДНЦ.</div></div></div>
+      <ul class="acts">${v.acts.map(a=>`<li><b>${a[0]}</b><span>${a[1]}</span></li>`).join('')}</ul>
+      <div class="var-m" style="margin-top:16px">${metric('Индекс качества',`${base.index.toFixed(1)}% → ${to.toFixed(1)}%`,idxColor(to))}${metric('Задержка',`${base.delay} → ${MODES[v.mode].delay} мин`,C.green)}${metric('Экономия энергии',`+${v.energy.toFixed(1)}%`,C.green)}</div>`;
+  }
+}
+function applyPlan(){
+  const W=WZ[wz.scn], v=W[wz.pick]; closeWizard();
+  setMode(v.mode,false);
+  log(`ИИ: применён вариант ${wz.pick==='A'?'А':'Б'} (${v.t.toLowerCase()})`,'g');
+  v.acts.forEach(a=>log(`${a[0]}: ${a[1]}`,''));
+  toast(`✅ Оптимизированный график применён. Индекс качества: <b>${MODES[v.mode].index.toFixed(1)}%</b>`);
+}
+window.openWizard=openWizard;
+
+/* ---------------- Поток 1 Гц ---------------- */
+const CHATTER = [
+  ['G451: проследовал ст. Сарыозек по графику','g'],['ATO P022: рекомендация выбега принята машинистом','g'],
+  ['Телеметрия: 15 поездов, пакеты без потерь','' ],['G509: отклонение 2 мин, в пределах допуска','g'],
+  ['ATO G330: рекуперация 64 кВт·ч на спуске','g'],['P060: отправлен со ст. Тараз по графику','g'],
+  ['Метео: ветер 14 м/с, участок Актогай — Достык','y'],['G612: проследовал ст. Аягоз','g'],
+];
+function heartbeat(){
+  tick++; simSec++;
+  $('#clock').textContent=clockStr(simSec); $('#pkt').textContent='#'+(184200+tick);
+  if(tick%3===0) $('#msLat').textContent=(36+Math.round(Math.random()*14))+' мс';
+  moveTrains();
+  if(tick%2===0) refreshMarkers();
+  if(view==='ato'){ atoX+=1; if(atoX>ATO_CFG[atoId].len) atoX=0; renderAto(); }
+  if(tick%30===0){ renderGraph(); TREND.push([clockStr(simSec).slice(0,5), +(M().index+(Math.random()-.5)*.3).toFixed(1)]); if(TREND.length>60) TREND.shift(); if(iTrend) renderIndex(); }
+  if(tick%9===0){ const c=CHATTER[(tick/9)%CHATTER.length|0]; log(c[0],c[1]); }
+}
+
+/* ---------------- Старт ---------------- */
+log('P001: отказ тягового двигателя, остановка на перегоне Караганда — Агадырь','r');
+log('ИИ: конфликт скрещения P001 / P014 на ст. Агадырь','y');
+log('Прогноз: вторичные задержки P014, G203, G117','y');
+log('ATO: 11 рекомендаций выбега отправлено машинистам','g');
+renderHeader(); refreshMarkers(); drawZones();
+setInterval(heartbeat,1000);
+</script>
+</body>
+</html>
