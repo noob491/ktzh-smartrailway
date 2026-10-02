@@ -2,7 +2,7 @@
 
 Прототип системы поддержки решений для диспетчера и машиниста: автодиспетчеризация и советующее автоведение (Advisory ATO) на направлении Астана — Караганда — Алматы.
 
-**Живая демо-версия:** https://noob491.github.io/ktzh-smartrailway/
+**Живая демо-версия:** [https://noob491.github.io/ktzh-smartrailway/](https://github.com/noob491/ktzh-smartrailway/blob/main/ktzh-google-map.html)
 
 > Прототип носит консультативно-рекомендательный характер (Decision Support System) и не заменяет сертифицированные системы СЦБ и АЛСН.
 
